@@ -36,7 +36,7 @@ model.lb = [-0.2 -0.2 -0.2 -10 -10 0   0 0 0];
 model.ub = [+0.2 +0.2 +0.2 +10 +10 +30 1 1 1];
 
 model.N = 30;            % horizon length
-model.xfinal = [6; 6; 20; 0; 0; 0]; % v final=0 (standstill)
+%model.xfinal = [6; 6; 20; 0; 0; 0]; % v final=0 (standstill)
 
 
 x0i = model.lb+(model.ub-model.lb)/2;
@@ -46,8 +46,9 @@ problem.x0=x0;
 % Set initial and final conditions. This is usually changing from problem
 % instance to problem instance:
 problem.xinit = [-10; 5; 5; 0; 0; 0];
-problem.xfinal = model.xfinal;
-
+%problem.xfinal = model.xfinal;
+param = [6; 6; 20; 0; 0; 0];
+problem.all_parameters = repmat(param,model.N,1);
 
 %%%%%%%%%%%%%%%%%%%%%%% CALCULATE TARGET TRAJECTORY%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -78,12 +79,13 @@ grid
 for k = 1: length(pos_x)-1
 
 %% call the solver
-problem.xfinal(1) = pos_x(k);
-problem.xfinal(2) = pos_y(k);
-problem.xfinal(3) = 6;
 
+
+problem.xfinal=[pos_x(k);pos_y(k);20; 0; 0; 0];
+% param = [pos_x(k); pos_y(k); 6];
+% problem.all_parameters = repmat(param,30,1);
 [output,exitflag,info] = FORCESNLPsolver(problem);
-%%%%%%
+
 xCenter =pos_x(k);
 yCenter = pos_y(k); 
 
@@ -103,7 +105,7 @@ for i=1:30
     z_temp = TEMP(6,:);
 end
 
-h4 = plot(x_temp',y_temp','--')
+h4 = plot(x_temp',y_temp','--');
 axis([points(1,1)-5 points(end,1)+10 points(1,2)-5 points(end,2)+10])
 
 
@@ -121,8 +123,8 @@ problem.xinit(1) = output.x03(4);
 problem.xinit(2) = output.x03(5);
 problem.xinit(3) = output.x03(6);
 problem.xinit(4) = output.x03(7);
-problem.xinit(5) = output.x02(8);
-problem.xinit(6) = output.x02(9);
+problem.xinit(5) = output.x03(8);
+problem.xinit(6) = output.x03(9);
 
 %%% plot trajectory calculated by the solver
 
