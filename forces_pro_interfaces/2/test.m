@@ -8,7 +8,7 @@ model.N = 30;            % horizon length
 model.nvar = 9;          % number of variables
 model.neq  = 6;          % number of equality constraints
 model.nh = 1;
-model.npar = 3;% number of inequality constraint functions
+model.npar = 6;% number of inequality constraint functions
 
 %% Objective function 
 
@@ -74,7 +74,7 @@ x0=repmat(x0i',model.N,1);
 problem.x0=x0;
 
 % Set parameters with the final point
-param = [3; 2; 20];
+param = [3; 2; 20; 0; 0; 0];
 problem.all_parameters=repmat(param, model.N,1);
 
 % Set initial and final conditions. This is usually changing from problem

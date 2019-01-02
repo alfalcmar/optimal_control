@@ -86,7 +86,7 @@ for k = 1: length(pos_x)-1
 %param = [pos_x(k); pos_y(k); 20];
 %problem.all_parameters=repmat(param, model.N,1);
 %problem.xfinal=[pos_x(k);pos_y(k);5; 0; 0; 0];
- param = [pos_x(k); pos_y(k); 6];
+ param = [pos_x(k); pos_y(k); 6;0 ;0;0];
  problem.all_parameters = repmat(param,30,1);
 [output,exitflag,info] = FORCESNLPsolver(problem);
 
