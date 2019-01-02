@@ -4,7 +4,7 @@ import casadi.*;
 
 %% Problem dimensions
 Nv = 1;
-model.N = 60;            % horizon length
+model.N = 30;            % horizon length
 model.nvar = 9;          % number of variables
 model.neq  = 6;          % number of equality constraints
 model.nh = 1;
@@ -12,7 +12,8 @@ model.npar = 3;% number of inequality constraint functions
 
 %% Objective function 
 
-model.objective = @objfun; 
+model.objective = @objfun;
+model.objectiveN = @objfunN;
 
 %% MODEL 
 %% Continous model
@@ -28,7 +29,7 @@ model.objective = @objfun;
 % 
 % model.eq = @(z) RK4(z(4:9), z(1:3), continuous_dynamics, integrator_stepsize);
 %% Discrete model
-t= 0.1;
+t= 1;
 A = [eye(3) t*eye(3); zeros(3) eye(3)];
 B = [(t^2)/2*eye(3); t*eye(3)];
 
@@ -38,8 +39,8 @@ model.E = [zeros(6,3) eye(6)];
 
 %% Inequality constraints
 % upper/lower variable bounds lb <= x <= ub
-model.lb = [-0.2 -0.2 -0.2 -10 -10 0   0 0 0];
-model.ub = [+0.2 +0.2 +0.2 +10 +10 +30 1 1 1];
+model.lb = [-0.5 -0.5 -0.5 -30 -30 0   0 0 0];
+model.ub = [+0.5 +0.5 +0.5 +30 +30 +30 1 1 1];
 
 % General (differentiable) nonlinear inequalities hl <= h(x) <= hu
 model.ineq = @(z)  (z(4))^2 + (z(5))^2;
@@ -73,7 +74,7 @@ x0=repmat(x0i',model.N,1);
 problem.x0=x0;
 
 % Set parameters with the final point
-param = [0; -4; 20];
+param = [3; 2; 20];
 problem.all_parameters=repmat(param, model.N,1);
 
 % Set initial and final conditions. This is usually changing from problem
