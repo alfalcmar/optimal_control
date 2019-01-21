@@ -11,9 +11,15 @@
 #include <nav_msgs/Path.h>
 #include <boost/thread/thread.hpp>
 #include <uav_abstraction_layer/TakeOff.h>
+#include <geometry_msgs/TwistStamped.h>
+
 
 geometry_msgs::PoseStamped target_pose;
 geometry_msgs::PoseStamped own_pose;
+ros::ServiceClient go_to_waypoint_srv_;
+ros::Publisher set_pose_pub; 
+ros::Publisher set_velocity_pub; 
+
 
 
 
@@ -47,20 +53,55 @@ bool solver_called = false;
 
 void UALthread(){
     int cont = 0;
+    sleep(5);
+
     ros::Rate rate(10);//hz
+    ROS_INFO("thread initialized");
     sleep(10);
     /////////////////////////////////////////////////////////////
     while(ros::ok()){
+
         if(solver_called) cont = 0;
         // call the UAL
-        uav_abstraction_layer::GoToWaypoint pose_srv;
+        /*uav_abstraction_layer::GoToWaypoint pose_srv;
         pose_srv.request.waypoint.pose.position.x = x[cont];
         pose_srv.request.waypoint.pose.position.y = y[cont];
         pose_srv.request.waypoint.pose.position.z = z[cont];
+        std::cout<<"pose x: "<<x[cont]<<" y: "<<y[cont]<<" z: "<<z[cont]<<std::endl;
+        pose_srv.request.waypoint.pose.orientation = target_pose.pose.orientation;
         pose_srv.request.waypoint.header.frame_id = "map";
         pose_srv.request.waypoint.header.stamp = ros::Time::now();
         pose_srv.request.blocking = false;
+        
+        /*
+        geometry_msgs::PoseStamped pose;
+        pose.pose.position.x = x[cont+5];
+        pose.pose.position.y = y[cont+5];
+        pose.pose.position.z = z[cont+5];
+        std::cout<<"pose x: "<<x[cont+5]<<" y: "<<y[cont]<<" z: "<<z[cont]<<std::endl;
+        pose.pose.orientation = target_pose.pose.orientation;
+        pose.header.frame_id = "map";
+        pose.header.stamp = ros::Time::now();
 
+        set_pose_pub.publish(pose); */
+
+        geometry_msgs::TwistStamped vel;
+        double xe = x[cont+20] - own_pose.pose.position.x;
+        double ye = y[cont+20] - own_pose.pose.position.y;
+        double ze = z[cont+20]-own_pose.pose.position.z;
+        double dirx=xe/(sqrt(powf(xe, 2.0) + powf(ye, 2.0)+powf(ze, 2.0)));
+        double diry=ye/(sqrt(powf(xe, 2.0) + powf(ye, 2.0)+powf(ze, 2.0)));
+        double dirz=ze/(sqrt(powf(xe, 2.0) + powf(ye, 2.0)+powf(ze, 2.0)));
+        vel.twist.linear.x = 10*dirx;
+        vel.twist.linear.y = 10*diry;
+        vel.twist.linear.z = 10*dirz;
+        vel.header.frame_id = "map";
+        vel.header.stamp = ros::Time::now();
+
+        set_velocity_pub.publish(vel);
+
+        
+        
         cont = cont+1;
         ros::spinOnce();
         rate.sleep();
@@ -303,20 +344,19 @@ int main(int _argc, char **_argv)
 
     ros::Subscriber target_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("uav_1/ual/pose", 1, targetPoseCallback);
     ros::Subscriber own_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("uav_2/ual/pose", 1, ownPoseCallback);
-    ros::ServiceClient go_to_waypoint_srv_ = nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("uav_2/ual/go_to_waypoint");
+    go_to_waypoint_srv_ = nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("uav_2/ual/go_to_waypoint");
     ros::ServiceClient take_off_srv_ = nh.serviceClient<uav_abstraction_layer::TakeOff>("uav_2/ual/take_off");
 
     ros::Publisher path_rviz_pub = nh.advertise<nav_msgs::Path>("/solver/path",1);
-
+    set_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/uav_2/ual/set_pose",1);
+    set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("/uav_2/ual/set_velocity",1);
     uav_abstraction_layer::TakeOff srv;
     srv.request.blocking = true;
     srv.request.height = 5;
     take_off_srv_.call(srv);
-    sleep(6);
     // thread for calling the UAL
-   // std::thread threadObjSolver(UALthread);
+    std::thread threadObjSolver(UALthread);
 
-    ROS_INFO("aqui");
 
  
 
