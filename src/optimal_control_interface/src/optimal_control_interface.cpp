@@ -12,16 +12,34 @@
 #include <boost/thread/thread.hpp>
 #include <uav_abstraction_layer/TakeOff.h>
 #include <geometry_msgs/TwistStamped.h>
+#include <nav_msgs/Odometry.h>
+#include "uav_path_manager/GeneratePath.h"
+#include "uav_path_manager/GetGeneratedPath.h"
+#include <Eigen/Eigen>
+#include <multidrone_msgs/DirectorEvent.h>
+
 
 
 geometry_msgs::PoseStamped target_pose;
 geometry_msgs::PoseStamped own_pose;
+geometry_msgs::TwistStamped own_velocity;
 ros::ServiceClient go_to_waypoint_srv_;
 ros::Publisher set_pose_pub; 
-ros::Publisher set_velocity_pub; 
+ros::Publisher set_velocity_pub;
+ros::ServiceClient client_follower, client_generator;
+ros::Subscriber sub_velocity;
+geometry_msgs::TwistStamped velocity;
+std::string event_received_id;
+bool event_received = false;
+ros::ServiceClient take_off_srv;
+
+#define WAYPOINT_X -4.38
+#define WAYPOINT_Y -39.52
+#define WAYPOINT_Z 4
 
 
 
+int offset = 10;
 
 #ifdef __cplusplus
 extern "C"
@@ -35,21 +53,59 @@ extern "C"
 #endif
 namespace plt = matplotlibcpp;
 
-void targetPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
+void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
-    target_pose.pose = msg->pose;
+    target_pose.pose = msg->pose.pose;
     //std::cout<<"x: "<<target_pose.pose.position.x<<" y: "<<target_pose.pose.position.y<<" z "<<target_pose.pose.position.z<<std::endl;
+}
+
+void velocityCallback(const geometry_msgs::TwistStamped &_velocity) {
+    velocity = _velocity;
 }
 
 void ownPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
     own_pose.pose = msg->pose;
 }
+void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
+{
+    own_velocity.twist = msg->twist;
+}
+bool directorEventCb(multidrone_msgs::DirectorEvent::Request &req,
+                     multidrone_msgs::DirectorEvent::Request &res)
+{
+  event_received_id = req.event_id;
+  event_received = true;
+  ROS_INFO("event %s received from the Director", event_received_id.c_str());
+  return true;
+}
+
+
+bool checkHovering(){
+    Eigen::Vector3f current_pose, current_target_pose;
+    current_pose = Eigen::Vector3f(own_pose.pose.position.x, own_pose.pose.position.y, own_pose.pose.position.z);
+    current_target_pose = Eigen::Vector3f(target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
+    if((current_target_pose - current_pose).norm() > 0.5) return false;
+    else return true;
+}
 
 std::vector<double> x;
 std::vector<double> y;
 std::vector<double> z;
+std::vector<double> vx;
+std::vector<double> vy;
+std::vector<double> vz;
 bool solver_called = false;
+
+
+
+   
+
+
+
+/** Control function
+ */
+
 
 void UALthread(){
     int cont = 0;
@@ -57,11 +113,26 @@ void UALthread(){
 
     ros::Rate rate(10);//hz
     ROS_INFO("thread initialized");
-    sleep(10);
+
+     while(event_received_id!="GET_READY"){
+        sleep(0.5);
+    }
+    ROS_INFO("taking off");
+    // taking off
+    uav_abstraction_layer::TakeOff srv;
+    srv.request.blocking = true;
+    srv.request.height = 5;
+    take_off_srv.call(srv);
+
+    // wait for start race
+    while(event_received_id == "START_RACE" ){
+        sleep(0.5);
+    }
     /////////////////////////////////////////////////////////////
     while(ros::ok()){
 
         if(solver_called) cont = 0;
+        else cont = cont+1;
         // call the UAL
         /*uav_abstraction_layer::GoToWaypoint pose_srv;
         pose_srv.request.waypoint.pose.position.x = x[cont];
@@ -72,43 +143,51 @@ void UALthread(){
         pose_srv.request.waypoint.header.frame_id = "map";
         pose_srv.request.waypoint.header.stamp = ros::Time::now();
         pose_srv.request.blocking = false;
-        
-        /*
-        geometry_msgs::PoseStamped pose;
-        pose.pose.position.x = x[cont+5];
-        pose.pose.position.y = y[cont+5];
-        pose.pose.position.z = z[cont+5];
-        std::cout<<"pose x: "<<x[cont+5]<<" y: "<<y[cont]<<" z: "<<z[cont]<<std::endl;
+        */
+        /***************** POSE ****************************/
+       /* geometry_msgs::PoseStamped pose;
+        pose.pose.position.x = x[cont];
+        pose.pose.position.y = y[cont];
+        pose.pose.position.z = z[cont];
         pose.pose.orientation = target_pose.pose.orientation;
         pose.header.frame_id = "map";
         pose.header.stamp = ros::Time::now();
 
         set_pose_pub.publish(pose); */
+        /*
+        
+        /************** VELOCITY ***********************/
+
 
         geometry_msgs::TwistStamped vel;
-        double xe = x[cont+20] - own_pose.pose.position.x;
-        double ye = y[cont+20] - own_pose.pose.position.y;
-        double ze = z[cont+20]-own_pose.pose.position.z;
-        double dirx=xe/(sqrt(powf(xe, 2.0) + powf(ye, 2.0)+powf(ze, 2.0)));
-        double diry=ye/(sqrt(powf(xe, 2.0) + powf(ye, 2.0)+powf(ze, 2.0)));
-        double dirz=ze/(sqrt(powf(xe, 2.0) + powf(ye, 2.0)+powf(ze, 2.0)));
-        vel.twist.linear.x = 10*dirx;
-        vel.twist.linear.y = 10*diry;
-        vel.twist.linear.z = 10*dirz;
+        vel.twist.linear.x = vx[10];
+        vel.twist.linear.y = vy[10];
+        vel.twist.linear.z = vz[10];
+
+      
         vel.header.frame_id = "map";
         vel.header.stamp = ros::Time::now();
-
         set_velocity_pub.publish(vel);
 
+       /* if(!checkHovering()) set_velocity_pub.publish(velocity);
+        else{
+        geometry_msgs::TwistStamped vel;
+        vel.twist.linear.x = 0;
+        vel.twist.linear.y = 0;
+        vel.twist.linear.z = 0;
+        set_velocity_pub.publish(velocity);
+        } */
+
         
         
-        cont = cont+1;
+      //  cont = cont+1;
         ros::spinOnce();
         rate.sleep();
     }
 }
 
-
+/** solver function
+*/
 
 void solverFunction(){
 
@@ -150,9 +229,9 @@ void solverFunction(){
     }
     // set parameters
     std::vector<double> params;
-    double def_param[] = {target_pose.pose.position.x,target_pose.pose.position.y, target_pose.pose.position.z, 0, 0, 0,15,15};
+    double def_param[] = {WAYPOINT_X, WAYPOINT_Y, WAYPOINT_Z, 0, 0, 0};
     for(int i = 0; i<30; i++){
-        for(int j=0; j<8; j++){
+        for(int j=0; j<6; j++){
             params.push_back(def_param[j]);
         }
     }
@@ -200,6 +279,37 @@ void solverFunction(){
     x.push_back(myoutput.x28[3]);
     x.push_back(myoutput.x29[3]);
     x.push_back(myoutput.x30[3]);
+
+    vx.push_back(myoutput.x01[6]);
+    vx.push_back(myoutput.x02[6]);
+    vx.push_back(myoutput.x03[6]);
+    vx.push_back(myoutput.x04[6]);
+    vx.push_back(myoutput.x05[6]);
+    vx.push_back(myoutput.x06[6]);
+    vx.push_back(myoutput.x07[6]);
+    vx.push_back(myoutput.x08[6]);
+    vx.push_back(myoutput.x09[6]);
+    vx.push_back(myoutput.x10[6]);
+    vx.push_back(myoutput.x11[6]);
+    vx.push_back(myoutput.x12[6]);
+    vx.push_back(myoutput.x13[6]);
+    vx.push_back(myoutput.x14[6]);
+    vx.push_back(myoutput.x15[6]);
+    vx.push_back(myoutput.x16[6]);
+    vx.push_back(myoutput.x17[6]);
+    vx.push_back(myoutput.x18[6]);
+    vx.push_back(myoutput.x19[6]);
+    vx.push_back(myoutput.x20[6]);
+    vx.push_back(myoutput.x21[6]);
+    vx.push_back(myoutput.x22[6]);
+    vx.push_back(myoutput.x23[6]);
+    vx.push_back(myoutput.x24[6]);
+    vx.push_back(myoutput.x25[6]);
+    vx.push_back(myoutput.x26[6]);
+    vx.push_back(myoutput.x27[6]);
+    vx.push_back(myoutput.x28[6]);
+    vx.push_back(myoutput.x29[6]);
+    vx.push_back(myoutput.x30[6]);
     // xplot.push_back(myoutput->x31[3]);
     // xplot.push_back(myoutput->x32[3]);
     // xplot.push_back(myoutput->x33[3]);
@@ -250,6 +360,38 @@ void solverFunction(){
     y.push_back(myoutput.x28[4]);
     y.push_back(myoutput.x29[4]);
     y.push_back(myoutput.x30[4]);
+
+
+    vy.push_back(myoutput.x01[7]);
+    vy.push_back(myoutput.x02[7]);
+    vy.push_back(myoutput.x03[7]);
+    vy.push_back(myoutput.x04[7]);
+    vy.push_back(myoutput.x05[7]);
+    vy.push_back(myoutput.x06[7]);
+    vy.push_back(myoutput.x07[7]);
+    vy.push_back(myoutput.x08[7]);
+    vy.push_back(myoutput.x09[7]);
+    vy.push_back(myoutput.x10[7]);
+    vy.push_back(myoutput.x11[7]);
+    vy.push_back(myoutput.x12[7]);
+    vy.push_back(myoutput.x13[7]);
+    vy.push_back(myoutput.x14[7]);
+    vy.push_back(myoutput.x15[7]);
+    vy.push_back(myoutput.x16[7]);
+    vy.push_back(myoutput.x17[7]);
+    vy.push_back(myoutput.x18[7]);
+    vy.push_back(myoutput.x19[7]);
+    vy.push_back(myoutput.x20[7]);
+    vy.push_back(myoutput.x21[7]);
+    vy.push_back(myoutput.x22[7]);
+    vy.push_back(myoutput.x23[7]);
+    vy.push_back(myoutput.x24[7]);
+    vy.push_back(myoutput.x25[7]);
+    vy.push_back(myoutput.x26[7]);
+    vy.push_back(myoutput.x27[7]);
+    vy.push_back(myoutput.x28[7]);
+    vy.push_back(myoutput.x29[7]);
+    vy.push_back(myoutput.x30[7]);
     // yplot.push_back(myoutput->x31[4]);
     // yplot.push_back(myoutput->x32[4]);
     // yplot.push_back(myoutput->x33[4]);
@@ -270,6 +412,38 @@ void solverFunction(){
     // yplot.push_back(myoutput->x48[4]);
     // yplot.push_back(myoutput->x49[4]);
     // yplot.push_back(myoutput->x50[4]);
+
+    vz.push_back(myoutput.x01[8]);
+    vz.push_back(myoutput.x02[8]);
+    vz.push_back(myoutput.x03[8]);
+    vz.push_back(myoutput.x04[8]);
+    vz.push_back(myoutput.x05[8]);
+    vz.push_back(myoutput.x06[8]);
+    vz.push_back(myoutput.x07[8]);
+    vz.push_back(myoutput.x08[8]);
+    vz.push_back(myoutput.x09[8]);
+    vz.push_back(myoutput.x10[8]);
+    vz.push_back(myoutput.x11[8]);
+    vz.push_back(myoutput.x12[8]);
+    vz.push_back(myoutput.x13[8]);
+    vz.push_back(myoutput.x14[8]);
+    vz.push_back(myoutput.x15[8]);
+    vz.push_back(myoutput.x16[8]);
+    vz.push_back(myoutput.x17[8]);
+    vz.push_back(myoutput.x18[8]);
+    vz.push_back(myoutput.x19[8]);
+    vz.push_back(myoutput.x20[8]);
+    vz.push_back(myoutput.x21[8]);
+    vz.push_back(myoutput.x22[8]);
+    vz.push_back(myoutput.x23[8]);
+    vz.push_back(myoutput.x24[8]);
+    vz.push_back(myoutput.x25[8]);
+    vz.push_back(myoutput.x26[8]);
+    vz.push_back(myoutput.x27[8]);
+    vz.push_back(myoutput.x28[8]);
+    vz.push_back(myoutput.x29[8]);
+    vz.push_back(myoutput.x30[8]);
+
     z.push_back(myoutput.x01[5]);
     z.push_back(myoutput.x02[5]);
     z.push_back(myoutput.x03[5]);
@@ -316,6 +490,8 @@ void solverFunction(){
     
 }
 
+/**  Hector function
+ */
 
 nav_msgs::Path constructPath(std::vector<double> wps_x, std::vector<double> wps_y, std::vector<double> wps_z) {
     nav_msgs::Path msg;
@@ -341,33 +517,58 @@ int main(int _argc, char **_argv)
     ros::NodeHandle nh = ros::NodeHandle();
     
     // subscribe to target_pose and gotowaypoint service
+    client_generator = nh.serviceClient<uav_path_manager::GeneratePath>("/uav_path_manager/generator/generate_path");
+    client_follower = nh.serviceClient<uav_path_manager::GetGeneratedPath>("/uav_path_manager/follower/uav_1/generated_path");
+    ros::Subscriber target_pose_sub = nh.subscribe<nav_msgs::Odometry>("drc_vehicle_xp900/odometry", 1, targetPoseCallback);
+    ros::Subscriber own_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("drone_1/ual/pose", 1, ownPoseCallback);
+    ros::Subscriber own_velocity_sub = nh.subscribe<geometry_msgs::TwistStamped>("drone_1/ual/velocity", 1, ownVelocityCallback);
 
-    ros::Subscriber target_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("uav_1/ual/pose", 1, targetPoseCallback);
-    ros::Subscriber own_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("uav_2/ual/pose", 1, ownPoseCallback);
-    go_to_waypoint_srv_ = nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("uav_2/ual/go_to_waypoint");
-    ros::ServiceClient take_off_srv_ = nh.serviceClient<uav_abstraction_layer::TakeOff>("uav_2/ual/take_off");
+    go_to_waypoint_srv_ = nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("uav_1/ual/go_to_waypoint");
+    take_off_srv = nh.serviceClient<uav_abstraction_layer::TakeOff>("drone_1/ual/take_off");
 
     ros::Publisher path_rviz_pub = nh.advertise<nav_msgs::Path>("/solver/path",1);
-    set_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/uav_2/ual/set_pose",1);
-    set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("/uav_2/ual/set_velocity",1);
-    uav_abstraction_layer::TakeOff srv;
-    srv.request.blocking = true;
-    srv.request.height = 5;
-    take_off_srv_.call(srv);
+    set_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/drone_1/ual/set_pose",1);
+    set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("/drone_1/ual/set_velocity",1);
+    sub_velocity = nh.subscribe("/uav_path_manager/follower/uav_1/output_vel", 0, &velocityCallback);
+    ros::ServiceServer service = nh.advertiseService("event_manager/director_event", directorEventCb);
+
+
+
     // thread for calling the UAL
     std::thread threadObjSolver(UALthread);
 
 
- 
-
     ros::Rate rate(1);//hz
 
+    ROS_INFO("solver running");
     while(ros::ok){
+
         // solver function
         solverFunction();
-        //plotting RVIZ
-        nav_msgs::Path path_to_publish = constructPath(x,y,z);
-        path_rviz_pub.publish(path_to_publish);
+        /***************** HECTOR ************************ /
+
+
+        /*nav_msgs::Path init_path = constructPath(x,y,z);
+        // generating a path with more waypoints
+        uav_path_manager::GeneratePath generate_path;
+        uav_path_manager::GetGeneratedPath give_generated_path;
+        std_msgs::Int8 generator_mode;
+        std_msgs::Float32 cruising_speed, look_ahead;
+
+        generator_mode.data = 1; //choosing cubic interpolation (1 linear, 2 cubic, 3 cubic-loyal)
+        generate_path.request.generator_mode = generator_mode;
+        generate_path.request.init_path = init_path;
+        client_generator.call(generate_path);
+        nav_msgs::Path path = generate_path.response.generated_path;
+        give_generated_path.request.generated_path = path;
+        cruising_speed.data = 1.5; 
+        look_ahead.data = 2.0;
+        give_generated_path.request.cruising_speed = cruising_speed;
+        give_generated_path.request.look_ahead = look_ahead;
+        client_follower.call(give_generated_path);*/
+        /********************************************************/
+
+       // path_rviz_pub.publish(path);
         rate.sleep();
         ros::spinOnce();
     }    

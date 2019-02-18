@@ -5,6 +5,7 @@ project(optimal_control_interface)
 add_compile_options(-std=c++11)
 
 
+
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -14,18 +15,19 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   uav_abstraction_layer
   nav_msgs
+  uav_path_manager
+  multidrone_msgs
 )
-
 find_package(PythonLibs 2.7)
-
-
-#roslaunch_add_file_check(launch USE_TEST_DEPENDENCIES)
 
 catkin_package(
  INCLUDE_DIRS include
   LIBRARIES 
-  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs uav_abstraction_layer
+  CATKIN_DEPENDS roscpp rospy tf std_msgs std_srvs uav_abstraction_layer uav_path_manager multidrone_msgs
 )
+
+#roslaunch_add_file_check(launch USE_TEST_DEPENDENCIES)
+
 
 include_directories(
   include
