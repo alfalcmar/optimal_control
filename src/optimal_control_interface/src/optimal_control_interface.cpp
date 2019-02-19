@@ -32,6 +32,8 @@ geometry_msgs::TwistStamped velocity;
 std::string event_received_id;
 bool event_received = false;
 ros::ServiceClient take_off_srv;
+std::ofstream log2mat
+
 
 #define WAYPOINT_X -4.38
 #define WAYPOINT_Y -39.52
@@ -56,7 +58,6 @@ namespace plt = matplotlibcpp;
 void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
     target_pose.pose = msg->pose.pose;
-    //std::cout<<"x: "<<target_pose.pose.position.x<<" y: "<<target_pose.pose.position.y<<" z "<<target_pose.pose.position.z<<std::endl;
 }
 
 void velocityCallback(const geometry_msgs::TwistStamped &_velocity) {
@@ -80,6 +81,24 @@ bool directorEventCb(multidrone_msgs::DirectorEvent::Request &req,
   return true;
 }
 
+
+geometry_msgs::Quaternion toQuaternion(double pitch, double roll, double yaw)
+{
+	geometry_msgs::Quaternion q;
+        // Abbreviations for the various angular functions
+	double cy = cos(yaw * 0.5);
+	double sy = sin(yaw * 0.5);
+	double cr = cos(roll * 0.5);
+	double sr = sin(roll * 0.5);
+	double cp = cos(pitch * 0.5);
+	double sp = sin(pitch * 0.5);
+
+	q.w = cy * cr * cp + sy * sr * sp;
+	q.x = cy * sr * cp - sy * cr * sp;
+	q.y = cy * cr * sp + sy * sr * cp;
+	q.z = sy * cr * cp - cy * sr * sp;
+	return q;
+}
 
 bool checkHovering(){
     Eigen::Vector3f current_pose, current_target_pose;
@@ -106,7 +125,6 @@ bool solver_called = false;
 /** Control function
  */
 
-
 void UALthread(){
     int cont = 0;
     sleep(5);
@@ -130,7 +148,6 @@ void UALthread(){
     }
     /////////////////////////////////////////////////////////////
     while(ros::ok()){
-
         if(solver_called) cont = 0;
         else cont = cont+1;
         // call the UAL
@@ -145,8 +162,8 @@ void UALthread(){
         pose_srv.request.blocking = false;
         */
         /***************** POSE ****************************/
-       /* geometry_msgs::PoseStamped pose;
-        pose.pose.position.x = x[cont];
+        geometry_msgs::PoseStamped pose;
+       /* pose.pose.position.x = x[cont];
         pose.pose.position.y = y[cont];
         pose.pose.position.z = z[cont];
         pose.pose.orientation = target_pose.pose.orientation;
@@ -156,6 +173,14 @@ void UALthread(){
         set_pose_pub.publish(pose); */
         /*
         
+        /************* YAW *****************************/
+        double dx = x[cont] - own_pose.pose.position.x;
+        double dy = y[cont] - own_pose.pose.position.y;
+        double yaw = atan2(dy,dx);
+        geometry_msgs::Quaternion quat = toQuaternion(0.0, 0.0, yaw);
+
+        pose.pose.orientation = quat;
+
         /************** VELOCITY ***********************/
 
 
