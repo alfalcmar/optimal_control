@@ -1,21 +1,4 @@
 /** ros node to interface with solver created by FORCES PRO */
-#include <ros/ros.h>
-#include "FORCESNLPsolver.h"
-#include "matplotlibcpp.h"
-#include <cmath>
-#include <geometry_msgs/PoseStamped.h>
-#include <uav_abstraction_layer/GoToWaypoint.h>
-#include <thread>
-#include <nav_msgs/Path.h>
-#include <boost/thread/thread.hpp>
-#include <uav_abstraction_layer/TakeOff.h>
-#include <geometry_msgs/TwistStamped.h>
-#include <nav_msgs/Odometry.h>
-#include "uav_path_manager/GeneratePath.h"
-#include "uav_path_manager/GetGeneratedPath.h"
-#include <Eigen/Eigen>
-#include <multidrone_msgs/DirectorEvent.h>
-
 #include <optimal_control_interface.h>
 
 
@@ -30,9 +13,8 @@ ros::Subscriber sub_velocity;
 std::string event_received_id;
 bool event_received = false;
 ros::ServiceClient take_off_srv;
-
-
-
+ros::NodeHandle nh;
+ros::Publisher path_rviz_pub;
 
 
 int offset = 10;
@@ -51,13 +33,7 @@ namespace plt = matplotlibcpp;
 
 /////////////////////////////////// CALLBACKS //////////////////////////////////////////////
 
-/** Callback for the target pose
- */
 
-void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
-{
-    target_pose.pose = msg->pose.pose;
-}
 
 /** Drone pose callback
  */
@@ -73,12 +49,20 @@ void ownVelocityCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
     own_velocity.twist = msg->twist;
 }
 
+
+void init(){
+    path_rviz_pub = nh.advertise<nav_msgs::Path>("/solver/path",1);
+    csv_pose.open("/home/grvc/pose.csv");
+    csv_pose << std::fixed << std::setprecision(5);
+
+}
 ///////////////// UTILITY FUNCTIONS ////////////////////
+
 
 /** Utility function for hovering
  */
 
-bool checkHovering(){
+bool checkHovering(bool control_position){
     Eigen::Vector3f current_pose, current_target_pose;
     current_pose = Eigen::Vector3f(own_pose.pose.position.x, own_pose.pose.position.y, own_pose.pose.position.z);
     current_target_pose = Eigen::Vector3f(target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
@@ -120,7 +104,7 @@ bool directorEventCb(multidrone_msgs::DirectorEvent::Request &req,
 
 void plottingResult(FORCESNLPsolver_output *myoutput){
 
-    plt::plot(x, y, "b");
+    //plt::plot(x, y, "b");
     plt::xlim(6.0, 11.0);
     plt::ylim(6.0, 6.0);
     plt::show();
@@ -129,7 +113,12 @@ void plottingResult(FORCESNLPsolver_output *myoutput){
 
 /** function for logging to csv file
  */
-
+void logToCsv(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz, int n_steps){
+    // logging all results
+     for(int i=0; i<n_steps; i++){
+        csv_pose << x[i] << ", " << y[i] << ", " << z[i] << ", " << vx[i] << ", " << vy[i] << ", " << vz[i] << std::endl;
+    }
+}
 
 
 /**  Construct a nav_msgs_path
@@ -159,107 +148,16 @@ nav_msgs::Path constructNavMsgsPath(std::vector<double> wps_x, std::vector<doubl
  */
 
 void UALthread(){
-    int cont = 0;
-    sleep(5);
-
-    ros::Rate rate(10);//hz
-    ROS_INFO("thread initialized");
-
-     while(event_received_id!="GET_READY"){
-        sleep(0.5);
-    }
-    ROS_INFO("taking off");
-    // taking off
-    uav_abstraction_layer::TakeOff srv;
-    srv.request.blocking = true;
-    srv.request.height = 5;
-    take_off_srv.call(srv);
-
-    // wait for start race
-    while(event_received_id != "START_RACE" ){
-        sleep(0.5);
-    }
-    /////////////////////////////////////////////////////////////
-    while(event_received_id !="FORCES"){
-        if(solver_called) cont = 10;
-        else cont = cont+1;
-        // call the UAL
-        /*uav_abstraction_layer::GoToWaypoint pose_srv;
-        pose_srv.request.waypoint.pose.position.x = x[cont];
-        pose_srv.request.waypoint.pose.position.y = y[cont];
-        pose_srv.request.waypoint.pose.position.z = z[cont];
-        std::cout<<"pose x: "<<x[cont]<<" y: "<<y[cont]<<" z: "<<z[cont]<<std::endl;
-        pose_srv.request.waypoint.pose.orientation = target_pose.pose.orientation;
-        pose_srv.request.waypoint.header.frame_id = "map";
-        pose_srv.request.waypoint.header.stamp = ros::Time::now();
-        pose_srv.request.blocking = false;
-        */
-        /***************** POSE ****************************/
-         geometry_msgs::PoseStamped pose;
-       
-        pose.pose.position.x = DESIRED_WAYPOINT_X;
-        pose.pose.position.y = DESIRED_WAYPOINT_Y;
-        pose.pose.position.z = DESIRED_WAYPOINT_Z;
-        pose.pose.orientation = target_pose.pose.orientation;
-        pose.header.frame_id = "map";
-        pose.header.stamp = ros::Time::now();
-
-        set_pose_pub.publish(pose); 
-        /*
-        
-        /************* YAW *****************************/
-       /* double dx = x[cont] - own_pose.pose.position.x;
-        double dy = y[cont] - own_pose.pose.position.y;
-        double yaw = atan2(dy,dx);
-        geometry_msgs::Quaternion quat = toQuaternion(0.0, 0.0, yaw);
-
-        pose.pose.orientation = quat;
-
-        /************** VELOCITY ***********************/
-
-
-       /* geometry_msgs::TwistStamped vel;
-        vel.twist.linear.x = vx[cont];
-        vel.twist.linear.y = vy[cont];
-        vel.twist.linear.z = vz[cont];
-        
-        for(int i=0; i<vx.size();i++){
-            std::cout<<vx[i]<<std::endl;
-        }
-        vel.header.frame_id = "map";
-        vel.header.stamp = ros::Time::now();
-        set_velocity_pub.publish(vel);*/
-
-       /* if(!checkHovering()) set_velocity_pub.publish(velocity);
-        else{
-        geometry_msgs::TwistStamped vel;
-        vel.twist.linear.x = 0;
-        vel.twist.linear.y = 0;
-        vel.twist.linear.z = 0;
-        set_velocity_pub.publish(velocity);
-        } */
-
-        
-        
-      //  cont = cont+1;
-        ros::spinOnce();
-        rate.sleep();
-    }
+   
 }
 
 /////////////////////////////////////////////////////////////////////////////
-
-/** utility function to save the output
- */
-void saveOutput(int state_variable){
-
-}
 
 
 /** solver function
 */
 
-void solverFunction(){
+bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,float desired_wp_x, float desired_wp_y, float desired_wp_z, float desired_vel_x, float desired_vel_y, float desired_vel_z,float obst_x, float obst_y, float obst_z){
 
        // solver variables
     /* declare FORCES variables and structures */
@@ -297,9 +195,9 @@ void solverFunction(){
     }
     // set parameters
     std::vector<double> params;
-    double def_param[] = {DESIRED_WAYPOINT_X, DESIRED_WAYPOINT_Y, DESIRED_WAYPOINT_Z,
-                        own_velocity.twist.linear.x, own_velocity.twist.linear.y, own_velocity.twist.linear.z,
-                        POS_OBSTACLE_X, POS_OBSTACLE_Y, POS_OBSTACLE_Z};
+    double def_param[] = {desired_wp_x, desired_wp_y, desired_wp_z,
+                        desired_vel_x, desired_vel_y, desired_vel_z,
+                        obst_x, obst_y, obst_z};
 
     for(int i = 0; i<time_horizon; i++){
         for(int j=0; j<9; j++){
@@ -313,7 +211,6 @@ void solverFunction(){
      // call the solver
     
     exitflag = FORCESNLPsolver_solve(&myparams, &myoutput, &myinfo, stdout, pt2Function);
-    solver_called = true;
     // save the output in a vector
     x.clear();
     y.clear();
@@ -550,99 +447,17 @@ void solverFunction(){
 
         //
     }
-    if (exitflag == 1)
-    {
-      // print the exitflag for RVIZ    
-    }
-    else
-    {
-        //std::cout << "exitflag: " << exitflag << std::endl;
-    }
+    
+
+
+    if (exitflag == 1) return true;
+    else return false;
     
 }
 
 
-int main(int _argc, char **_argv)
-{
-
-    ros::init(_argc, _argv, "optimal_control_interface_node");
-    ros::NodeHandle nh = ros::NodeHandle();
-    
-    // subscribe to target_pose and gotowaypoint service
-    client_generator = nh.serviceClient<uav_path_manager::GeneratePath>("/uav_path_manager/generator/generate_path");
-    client_follower = nh.serviceClient<uav_path_manager::GetGeneratedPath>("/uav_path_manager/follower/uav_1/generated_path");
-    ros::Subscriber target_pose_sub = nh.subscribe<nav_msgs::Odometry>("drc_vehicle_xp900/odometry", 1, targetPoseCallback);
-    ros::Subscriber own_pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("drone_1/ual/pose", 1, ownPoseCallback);
-    ros::Subscriber own_velocity_sub = nh.subscribe<geometry_msgs::TwistStamped>("drone_1/ual/velocity", 1, ownVelocityCallback);
-
-    go_to_waypoint_srv_ = nh.serviceClient<uav_abstraction_layer::GoToWaypoint>("uav_1/ual/go_to_waypoint");
-    take_off_srv = nh.serviceClient<uav_abstraction_layer::TakeOff>("drone_1/ual/take_off");
-
-    ros::Publisher path_rviz_pub = nh.advertise<nav_msgs::Path>("/solver/path",1);
-    set_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/drone_1/ual/set_pose",1);
-    set_velocity_pub = nh.advertise<geometry_msgs::TwistStamped>("/drone_1/ual/set_velocity",1);
-    ros::ServiceServer service = nh.advertiseService("event_manager/director_event", directorEventCb);
-
-    csv_init.open("/home/grvc/init.csv");
-    csv_init << std::fixed << std::setprecision(5);
-
-    csv_pose.open("/home/grvc/pose.csv");
-    csv_pose << std::fixed << std::setprecision(5);
 
 
-    // thread for calling the UAL
-    std::thread threadObjSolver(UALthread);
-
-
-    ros::Rate rate(1);//hz
-    
-    ROS_INFO("solver running");
-    while(event_received_id !="FORCES"){
-    
-        // solver function
-        solverFunction();
-        /***************** HECTOR ************************ /
-
-
-        nav_msgs::Path init_path = constructPath(x,y,z);
-        // generating a path with more waypoints
-        uav_path_manager::GeneratePath generate_path;
-        uav_path_manager::GetGeneratedPath give_generated_path;
-        std_msgs::Int8 generator_mode;
-        std_msgs::Float32 cruising_speed, look_ahead;
-
-        generator_mode.data = 1; //choosing cubic interpolation (1 linear, 2 cubic, 3 cubic-loyal)
-        generate_path.request.generator_mode = generator_mode;
-        generate_path.request.init_path = init_path;
-        client_generator.call(generate_path);
-        nav_msgs::Path path = generate_path.response.generated_path;
-        give_generated_path.request.generated_path = path;
-        cruising_speed.data = 1.5; 
-        look_ahead.data = 2.0;
-        give_generated_path.request.cruising_speed = cruising_speed;
-        give_generated_path.request.look_ahead = look_ahead;
-        client_follower.call(give_generated_path);*/
-        /********************************************************/
-
-
-        for(int i=0; i<10; i++){
-            csv_init << x[i] << ", " << y[i] << ", " << z[i] << std::endl;
-        }
-
-
-
-        nav_msgs::Path init_path = constructNavMsgsPath(x,y,z);
-
-        path_rviz_pub.publish(init_path);
-        rate.sleep();
-        ros::spinOnce();
-    }   
-    csv_init.close();
-    csv_pose.close();
-
-    threadObjSolver.join();
-    return 0;
-}
 
 
 

@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="optimal_control_interface" name="optimal_control_node" type="optimal_control_interface_node" output="screen">
+        <param name="drone_id" value="1"/>
+        <param name="height_take_off" value = "5"/>
+        <param name="position_control" value = "false"/>
+        <param name="position_control" value = "false"/>
+    </node>
+</launch>
+
