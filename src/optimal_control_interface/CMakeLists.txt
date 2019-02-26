@@ -33,17 +33,26 @@ include_directories(
   include
   lib
   ${catkin_INCLUDE_DIRS}
+  ${PYTHON_INCLUDE_DIRS}
 )
 
 
 set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/lib/libFORCESNLPsolver.so)
 
-add_executable(optimal_control_interface_node src/optimal_control_interface.cpp 
+
+
+add_library(optimal_control_interface_library src/optimal_control_interface.cpp 
 src/FORCESNLPsolver_casadi2forces.c 
 src/FORCESNLPsolver_model_1.c
-src/FORCESNLPsolver_model_30.c)
+src/FORCESNLPsolver_model_30.c
+)
 
-target_include_directories(optimal_control_interface_node PRIVATE ${PYTHON_INCLUDE_DIRS})
+
+add_executable(optimal_control_interface_node src/main.cpp)
+
+
+target_link_libraries(optimal_control_interface_node optimal_control_interface_library)
+
 
 target_link_libraries(optimal_control_interface_node 
 ${catkin_LIBRARIES} ${EXTRALIB_BIN} ${PYTHON_LIBRARIES})
