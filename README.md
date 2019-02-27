@@ -1,4 +1,4 @@
-# following_target_simulation
+# optimal_control
 
 acado_interfaces: acado interfaces to generate the solver
 
