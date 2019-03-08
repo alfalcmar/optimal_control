@@ -1,20 +1,26 @@
 clear; clc; close all;
+% change for your local path
 addpath('/home/grvc/Desktop/casadi')
 addpath('/home/grvc/Desktop/FORCES_PRO_CLIENT')
 import casadi.*;
 
 %% Problem dimensions
-Nv = 0.1;
 model.N = 30;            % horizon length
 model.nvar = 9;          % number of variables
 model.neq  = 6;          % number of equality constraints
 model.nh = 1;           % number of inequality constraints
-model.npar = 10; % number of params
-%% z = [ax ay az px py pz vx vy vz]
+model.npar = 8;         % number of params
+t= 0.1;  %% time step - integrator
+
+% time step and horizon lenght to use the solver in the receding horizon in
+% real experiments
+
+
+%% z = [ax ay az px py pz vx vy vz]  => [control states]
 %% Objective function 
 
-model.objective = @objfun;  %% function objective
-model.objectiveN = @objfunN; %% N function obective
+model.objective = @objfun;  %% function objective (included in the same folder)
+model.objectiveN = @objfunN; %% N function obective (included in the same folder)
 
 %% MODEL %%%%%%%%%%%%%%%
 %% Continous model
@@ -29,32 +35,34 @@ model.objectiveN = @objfunN; %% N function obective
 %                               u(3)];         
 % 
 % model.eq = @(z) RK4(z(4:9), z(1:3), continuous_dynamics, integrator_stepsize);
-%% Discrete model
 
+%% Discrete model (we are using the discrete model)
+%   x_{k+1} = A*x_{k} + B*u_{k}
+% A = [I_3 delta_t*I_3; zeros_3 I_3] B = (delta_t^2)/2*I_3; delta_t*I_3]
 
-t= 0.1;  %% integrator
 A = [eye(3) t*eye(3); zeros(3) eye(3)];
 B = [(t^2)/2*eye(3); t*eye(3)];
 
 model.eq = @(z) [ A*[z(4);z(5);z(6);z(7);z(8);z(9)] + B*[z(1);z(2);z(3)]];
 
-model.E = [zeros(6,3) eye(6)];
+model.E = [zeros(6,3) eye(6)]; % A(6x6) B(6*3)
 
-% position, velocities and accelerations limits
+%% position, velocities and accelerations limits
 % upper/lower variable bounds lb <= x <= ub
 model.lb = [-1 -1 -1 -200 -200 0   -12 -12 -1];
 model.ub = [+1 +1 +1 +200 +200 +50 12 12 3];
 
-% General (differentiable) nonlinear inequalities hl <= h(x) <= hu cylinder
-model.ineq = @(z,p)  (z(4)-p(7))^2 + (z(5)-p(8))^2
-               
+%% nonlinear inequalities
+% (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
+model.ineq = @(z,p)  (z(4)-p(7))^2 + (z(5)-p(8))^2   %% obstacle position as parameter
+
 % Upper/lower bounds for inequalities
-model.hu = +inf;
-model.hl = p(10);
+model.hu = [inf]';
+model.hl = [15^2]';  %hardcoded for testing
 
 %% Initial and final conditions
 
-% Initial condition on drone states
+% Velocity and position of the vehicle as initial constraints
 model.xinitidx = 4:9;
 
 
@@ -77,12 +85,18 @@ x0i = model.lb+(model.ub-model.lb)/2;
 x0=repmat(x0i',model.N,1);
 problem.x0=x0;
 
-% Set parameters with the final point and final velocity
-param = [3.75; -45.25; 3; 0; 0; 0; -33; -15; 8;];
+% Set parameters with the final point and final velocity  
+% desired pose [7.65,-55,3]
+% desired velocity [0, 0, 0]
+% central point of the no_fly_zone [-2.4, -36.5]
+param = [7.65; -55; 3; 0; 0; 0; -2.4; -36.5];
 problem.all_parameters=repmat(param, model.N,1);
 
-% Set initial constraint. This is usually changing
-problem.xinit = [-38.795; .68; 3; 0; 0; 0];
+% Set initial constraint. This is usually changing in the simulation to use
+% the receding horizon
+% initial pose [-18.8, -12.26]
+% initial velocity [0, 0, 0]
+problem.xinit = [-18.8; -12.26; 3; 0; 0; 0];
 
 % Time to solve the NLP!
 [output,exitflag,info] = FORCESNLPsolver(problem);
@@ -107,29 +121,36 @@ v_y = TEMP(8,:);
 v_z = TEMP(9,:);
 
 
-%subplot (1,2,1)
 plot(x,y, 'LineWidth', 3); hold on
-% axis equal
 hold on
-plot(7.5,5, 'rx', 'markers', 30);
-% plot(Y(:,2),X(:,2));
 xlabel('x (m)'); ylabel('y (m)');  zlabel('z (m)');
-%ylim([0 10])
 
-grid
 
-%circle(0,0,2)
+%% plotting the real no fly zone
+clear x
+x = -13.1:0.1:-2.5;
 
-% subplot(1,2,2)
-% plot3(x,y,z, 'LineWidth', 3); hold on
-% %plot(7.5,5 'r.', 'markers', 10);
-% plot(7.5,5, 'r.', 'markers', 10);
-% 
-% % plot(Y(:,2),X(:,2));
-% xlabel('x (m)'); ylabel('y (m)');  zlabel('z (m)');
-% grid
-circle(-33, -15,10)
-% az = 0;
-% el = 90;
-% view(az, el);
+y = -1.5802*x-55.25; % recta arriba
+hold on
+plot(x,y)
+clear x
+x = -2.2:0.1:10.77;
+y = -1.457*x-24.01;
+hold on
+plot(x,y)
+
+clear x
+x = -13.1:0.1:-2.2;
+y = 1.261*x-18.02;
+hold on
+plot(x,y)
+
+clear x
+x = -2.5:0.1:10.7;
+y = 0.8742*x-49.11;
+hold on
+plot(x,y)
+
+
+
 
