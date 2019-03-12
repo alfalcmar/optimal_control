@@ -1,6 +1,6 @@
 /* 
  * CasADi to FORCES Template - missing information to be filled in by createCasadi.m 
- * (C) embotech AG, Zurich, Switzerland, 2013-18. All rights reserved.
+ * (C) embotech AG, Zurich, Switzerland, 2013-19. All rights reserved.
  *
  * This file is part of the FORCES client, and carries the same license.
  */ 
@@ -14,8 +14,8 @@ extern "C" {
 /* prototyes for models */
 extern void FORCESNLPsolver_model_1(const FORCESNLPsolver_float **arg, FORCESNLPsolver_float **res);
 extern void FORCESNLPsolver_model_1_sparsity(solver_int32_default i, solver_int32_default *nrow, solver_int32_default *ncol, const solver_int32_default **colind, const solver_int32_default **row);
-extern void FORCESNLPsolver_model_30(const FORCESNLPsolver_float **arg, FORCESNLPsolver_float **res);
-extern void FORCESNLPsolver_model_30_sparsity(solver_int32_default i, solver_int32_default *nrow, solver_int32_default *ncol, const solver_int32_default **colind, const solver_int32_default **row);
+extern void FORCESNLPsolver_model_80(const FORCESNLPsolver_float **arg, FORCESNLPsolver_float **res);
+extern void FORCESNLPsolver_model_80_sparsity(solver_int32_default i, solver_int32_default *nrow, solver_int32_default *ncol, const solver_int32_default **colind, const solver_int32_default **row);
     
 
 /* copies data from sparse matrix into a dense one */
@@ -45,8 +45,8 @@ extern void FORCESNLPsolver_casadi2forces(FORCESNLPsolver_float *x,        /* pr
                                  FORCESNLPsolver_float *h,        /* inequality constraints                              */
                                  FORCESNLPsolver_float *nabla_h,  /* Jacobian of inequality constraints (column major)   */
                                  FORCESNLPsolver_float *hess,     /* Hessian (column major)                              */
-                                 solver_int32_default stage                      /* stage number (0 indexed)                            */
-                  )
+                                 solver_int32_default stage,     /* stage number (0 indexed)                            */
+								 solver_int32_default iteration /* iteration number of solver                          */)
 {
     /* CasADi input and output arrays */
     const FORCESNLPsolver_float *in[4];
@@ -76,7 +76,7 @@ extern void FORCESNLPsolver_casadi2forces(FORCESNLPsolver_float *x,        /* pr
     out[0] = &this_f;
     out[1] = nabla_f_sparse;
                 
-	 if ((stage >= 0 && stage < 29))
+	 if ((stage >= 0 && stage < 79))
 	 {
 		 /* set inputs */
 		 out[2] = h_sparse;
@@ -117,28 +117,28 @@ extern void FORCESNLPsolver_casadi2forces(FORCESNLPsolver_float *x,        /* pr
 		 
 	 }
 
-	 if ((stage >= 29 && stage < 30))
+	 if ((stage >= 79 && stage < 80))
 	 {
 		 /* set inputs */
 		 out[2] = h_sparse;
 		 out[3] = nabla_h_sparse;
 		 /* call CasADi */
-		 FORCESNLPsolver_model_30(in, out);
+		 FORCESNLPsolver_model_80(in, out);
 
 		 /* copy to dense */
 		 if( nabla_f )
 		 {
-			 FORCESNLPsolver_model_30_sparsity(3, &nrow, &ncol, &colind, &row);
+			 FORCESNLPsolver_model_80_sparsity(3, &nrow, &ncol, &colind, &row);
 			 sparse2fullcopy(nrow, ncol, colind, row, nabla_f_sparse, nabla_f);
 		 }
 		 if( h )
 		 {
-			 FORCESNLPsolver_model_30_sparsity(4, &nrow, &ncol, &colind, &row);
+			 FORCESNLPsolver_model_80_sparsity(4, &nrow, &ncol, &colind, &row);
 			 sparse2fullcopy(nrow, ncol, colind, row, h_sparse, h);
 		 }
 		 if( nabla_h )
 		 {
-			 FORCESNLPsolver_model_30_sparsity(5, &nrow, &ncol, &colind, &row);
+			 FORCESNLPsolver_model_80_sparsity(5, &nrow, &ncol, &colind, &row);
 			 sparse2fullcopy(nrow, ncol, colind, row, nabla_h_sparse, nabla_h);
 		 }
 		 

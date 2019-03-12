@@ -8,7 +8,7 @@ extern "C" {
 #define _NAMESPACE_CONCAT(NS, ID) NS ## ID
 #define CASADI_PREFIX(ID) NAMESPACE_CONCAT(CODEGEN_PREFIX, ID)
 #else /* CODEGEN_PREFIX */
-#define CASADI_PREFIX(ID) FORCESNLPsolver_model_30_ ## ID
+#define CASADI_PREFIX(ID) FORCESNLPsolver_model_80_ ## ID
 #endif /* CODEGEN_PREFIX */
 
 #include <math.h>
@@ -33,7 +33,7 @@ static const solver_int32_default CASADI_PREFIX(s3)[] = {1, 9, 0, 0, 0, 0, 1, 2,
 static const solver_int32_default CASADI_PREFIX(s4)[] = {1, 9, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 0, 0};
 #define s4 CASADI_PREFIX(s4)
 /* evaluate_stages */
-solver_int32_default FORCESNLPsolver_model_30(const FORCESNLPsolver_float **arg, FORCESNLPsolver_float **res) 
+solver_int32_default FORCESNLPsolver_model_80(const FORCESNLPsolver_float **arg, FORCESNLPsolver_float **res) 
 {
     FORCESNLPsolver_float a0,a1,a2,a3,a4,a5,a6,a7,a8,a9;
     a0=arg[1] ? arg[1][0] : 0;
@@ -99,7 +99,7 @@ solver_int32_default FORCESNLPsolver_model_30(const FORCESNLPsolver_float **arg,
     return 0;
 }
 
-solver_int32_default FORCESNLPsolver_model_30_init(solver_int32_default *f_type, solver_int32_default *n_in, solver_int32_default *n_out, solver_int32_default *sz_arg, solver_int32_default *sz_res) 
+solver_int32_default FORCESNLPsolver_model_80_init(solver_int32_default *f_type, solver_int32_default *n_in, solver_int32_default *n_out, solver_int32_default *sz_arg, solver_int32_default *sz_res) 
 {
     *f_type = 1;
     *n_in = 2;
@@ -109,7 +109,7 @@ solver_int32_default FORCESNLPsolver_model_30_init(solver_int32_default *f_type,
     return 0;
 }
 
-solver_int32_default FORCESNLPsolver_model_30_sparsity(solver_int32_default i, solver_int32_default *nrow, solver_int32_default *ncol, const solver_int32_default **colind, const solver_int32_default **row) 
+solver_int32_default FORCESNLPsolver_model_80_sparsity(solver_int32_default i, solver_int32_default *nrow, solver_int32_default *ncol, const solver_int32_default **colind, const solver_int32_default **row) 
 {
     const solver_int32_default *s;
     switch (i) 
@@ -141,7 +141,7 @@ solver_int32_default FORCESNLPsolver_model_30_sparsity(solver_int32_default i, s
     return 0;
 }
 
-solver_int32_default FORCESNLPsolver_model_30_work(solver_int32_default *sz_iw, solver_int32_default *sz_w) 
+solver_int32_default FORCESNLPsolver_model_80_work(solver_int32_default *sz_iw, solver_int32_default *sz_w) 
 {
     if (sz_iw) *sz_iw = 0;
     if (sz_w) *sz_w = 10;

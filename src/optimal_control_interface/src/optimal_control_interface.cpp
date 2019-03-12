@@ -10,7 +10,7 @@ extern "C"
 #endif
     extern void FORCESNLPsolver_casadi2forces(double *x, double *y, double *l, double *p,
                           double *f, double *nabla_f, double *c, double *nabla_c,
-                          double *h, double *nabla_h, double *H, int stage);
+                          double *h, double *nabla_h, double *H, int stage, int iteration);
 #ifdef __cplusplus
 }
 #endif
@@ -39,6 +39,7 @@ void init(ros::NodeHandle nh){
     sub_position = nh.subscribe<geometry_msgs::PoseStamped>("/drone_1/ual/pose",1,ownPoseCallback);
     sub_velocity = nh.subscribe<geometry_msgs::TwistStamped>("/drone_1/ual/velocity",1,ownVelocityCallback);
     path_rviz_pub = nh.advertise<nav_msgs::Path>("/solver/path",1);
+    path_no_fly_zone = nh.advertise<nav_msgs::Path>("/solver/noflyzone",1);
     csv_pose.open("/home/grvc/pose.csv");
     csv_pose << std::fixed << std::setprecision(5);
 
@@ -105,16 +106,59 @@ void plottingResult(FORCESNLPsolver_output *myoutput){
 void logToCsv(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz, int n_steps){
     // logging all results
      for(int i=0; i<n_steps; i++){
-        csv_pose << x[i] << ", " << y[i] << ", " << z[i] << ", " << vx[i] << ", " << vy[i] << ", " << vz[i] << std::endl;
+        csv_pose << own_pose.pose.position.x << ", " << own_pose.pose.position.y << ", " << own_pose.pose.position.z << std::endl;
     }
-    csv_pose << std::endl;
+}
+/** Construct the no fly zone path to visualize it on RVIZ */
+void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]){
+    nav_msgs::Path msg;
+    msg.header.frame_id = "map";
+
+    std::vector<geometry_msgs::PoseStamped> poses;
+    geometry_msgs::PoseStamped pose;
+
+    pose.pose.position.x = point_1[0];
+    pose.pose.position.y = point_1[1];
+    poses.push_back(pose);
+
+    pose.pose.position.x = point_2[0];
+    pose.pose.position.y = point_2[1];
+    poses.push_back(pose);
+
+    pose.pose.position.x = point_3[0];
+    pose.pose.position.y = point_3[1];
+    poses.push_back(pose);
+
+    pose.pose.position.x = point_4[0];
+    pose.pose.position.y = point_4[1];
+    poses.push_back(pose);
+
+    pose.pose.position.x = point_1[0];
+    pose.pose.position.y = point_1[1];
+
+    
+    poses.push_back(pose);
+
+    msg.poses = poses;
+    path_no_fly_zone.publish(msg);
 }
 
+/**
+ */
+void publishDesiredPoint(double x, double y,double z){
+    geometry_msgs::PointStamped desired_point;
+    desired_point.point.x = x;
+    desired_point.point.y = y;
+    desired_point.point.z = z;
+    desired_point.header.frame_id = "map";
+
+    desired_pose_publisher.publish(desired_point);
+}
 
 /**  Construct a nav_msgs_path
  */
 
-void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::vector<double> &wps_z) {
+void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::vector<double> &wps_z, std::vector<double> &desired_wp) {
     nav_msgs::Path msg;
     std::vector<geometry_msgs::PoseStamped> poses(wps_x.size());
     msg.header.frame_id = "map";
@@ -161,12 +205,14 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     int i, exitflag;
 
     // set initial postion and velocity
+    initial_time = clock(); 
     myparams.xinit[0] = own_pose.pose.position.x;
     myparams.xinit[1] = own_pose.pose.position.y;
     myparams.xinit[2] = own_pose.pose.position.z;
     myparams.xinit[3] = own_velocity.twist.linear.x;
     myparams.xinit[4] = own_velocity.twist.linear.y;
-    myparams.xinit[5] = own_velocity.twist.linear.z;
+    myparams.xinit[5] = own_velocity.twist.linear.z; 
+
     // set initial guess
     std::vector<double> x0;
     double x0i[] = {u_x, u_y, u_z, p_x, p_y, p_z, v_x, v_y, v_z};
@@ -187,10 +233,10 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     std::vector<double> params;
     double def_param[] = {desired_wp[0], desired_wp[1], desired_wp[2],
                         desired_vel[0], desired_vel[1], desired_vel[2],
-                        obst[0], obst[1], obst[2]};
+                        obst[0], obst[1]};
 
     for(int i = 0; i<time_horizon; i++){
-        for(int j=0; j<9; j++){
+        for(int j=0; j<sizeof(def_param)/sizeof(double); j++){
             params.push_back(def_param[j]);
         }
     }
@@ -202,9 +248,7 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     // call the solver
     exitflag = FORCESNLPsolver_solve(&myparams, &myoutput, &myinfo, stdout, pt2Function);
     // save the output in a vector
-    x.clear();
-    y.clear();
-    z.clear();
+  
 
     x.push_back(myoutput.x01[position_x]);
     x.push_back(myoutput.x02[position_x]);

@@ -39,7 +39,7 @@ static const solver_int32_default CASADI_PREFIX(s6)[] = {6, 9, 0, 2, 4, 6, 7, 8,
 /* evaluate_stages */
 solver_int32_default FORCESNLPsolver_model_1(const FORCESNLPsolver_float **arg, FORCESNLPsolver_float **res) 
 {
-    FORCESNLPsolver_float a0,a1,a2,a3,a4,a5,a6,a7,a8;
+    FORCESNLPsolver_float a0,a1,a2,a3,a4,a5,a6,a7,a8,a9;
     a0=arg[0] ? arg[0][0] : 0;
     a1=sq(a0);
     a2=arg[0] ? arg[0][1] : 0;
@@ -69,44 +69,51 @@ solver_int32_default FORCESNLPsolver_model_1(const FORCESNLPsolver_float **arg, 
     if (res[3]!=0) res[3][0]=a4;
     a7=(a7+a7);
     if (res[3]!=0) res[3][1]=a7;
-    a7=arg[0] ? arg[0][6] : 0;
-    a1=(a1+a7);
-    a4=5.0000000000000000e-01;
-    a5=(a4*a0);
+    a7=1.0000000000000001e-01;
+    a4=arg[0] ? arg[0][6] : 0;
+    a5=(a7*a4);
     a1=(a1+a5);
+    a5=5.0000000000000010e-03;
+    a8=(a5*a0);
+    a1=(a1+a8);
     if (res[4]!=0) res[4][0]=a1;
     a1=arg[0] ? arg[0][7] : 0;
-    a6=(a6+a1);
-    a5=(a4*a2);
-    a6=(a6+a5);
-    if (res[4]!=0) res[4][1]=a6;
-    a6=arg[0] ? arg[0][5] : 0;
-    a5=arg[0] ? arg[0][8] : 0;
-    a6=(a6+a5);
-    a8=(a4*a3);
+    a8=(a7*a1);
     a6=(a6+a8);
-    if (res[4]!=0) res[4][2]=a6;
-    a7=(a7+a0);
-    if (res[4]!=0) res[4][3]=a7;
+    a8=(a5*a2);
+    a6=(a6+a8);
+    if (res[4]!=0) res[4][1]=a6;
+    a6=arg[0] ? arg[0][8] : 0;
+    a8=(a7*a6);
+    a9=arg[0] ? arg[0][5] : 0;
+    a9=(a9+a8);
+    a8=(a5*a3);
+    a9=(a9+a8);
+    if (res[4]!=0) res[4][2]=a9;
+    a0=(a7*a0);
+    a4=(a4+a0);
+    if (res[4]!=0) res[4][3]=a4;
+    a2=(a7*a2);
     a1=(a1+a2);
     if (res[4]!=0) res[4][4]=a1;
-    a5=(a5+a3);
-    if (res[4]!=0) res[4][5]=a5;
-    if (res[5]!=0) res[5][0]=a4;
+    a3=(a7*a3);
+    a6=(a6+a3);
+    if (res[4]!=0) res[4][5]=a6;
+    if (res[5]!=0) res[5][0]=a5;
+    if (res[5]!=0) res[5][1]=a7;
+    if (res[5]!=0) res[5][2]=a5;
+    if (res[5]!=0) res[5][3]=a7;
+    if (res[5]!=0) res[5][4]=a5;
+    if (res[5]!=0) res[5][5]=a7;
     a5=1.;
-    if (res[5]!=0) res[5][1]=a5;
-    if (res[5]!=0) res[5][2]=a4;
-    if (res[5]!=0) res[5][3]=a5;
-    if (res[5]!=0) res[5][4]=a4;
-    if (res[5]!=0) res[5][5]=a5;
     if (res[5]!=0) res[5][6]=a5;
     if (res[5]!=0) res[5][7]=a5;
     if (res[5]!=0) res[5][8]=a5;
-    if (res[5]!=0) res[5][9]=a5;
+    if (res[5]!=0) res[5][9]=a7;
     if (res[5]!=0) res[5][10]=a5;
-    if (res[5]!=0) res[5][11]=a5;
+    if (res[5]!=0) res[5][11]=a7;
     if (res[5]!=0) res[5][12]=a5;
-    if (res[5]!=0) res[5][13]=a5;
+    if (res[5]!=0) res[5][13]=a7;
     if (res[5]!=0) res[5][14]=a5;
     return 0;
 }
@@ -162,7 +169,7 @@ solver_int32_default FORCESNLPsolver_model_1_sparsity(solver_int32_default i, so
 solver_int32_default FORCESNLPsolver_model_1_work(solver_int32_default *sz_iw, solver_int32_default *sz_w) 
 {
     if (sz_iw) *sz_iw = 0;
-    if (sz_w) *sz_w = 9;
+    if (sz_w) *sz_w = 10;
     return 0;
 }
 
