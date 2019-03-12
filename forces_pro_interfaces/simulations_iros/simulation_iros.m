@@ -5,7 +5,7 @@ addpath('/home/grvc/Desktop/FORCES_PRO_CLIENT')
 import casadi.*;
 
 %% Problem dimensions
-model.N = 30;            % horizon length
+model.N = 80;            % horizon length
 model.nvar = 9;          % number of variables
 model.neq  = 6;          % number of equality constraints
 model.nh = 1;           % number of inequality constraints
@@ -92,7 +92,7 @@ problem.x0=x0;
 param = [7.65; -55; 3; 0; 0; 0; -2.4; -36.5];
 problem.all_parameters=repmat(param, model.N,1);
 
-% Set initial constraint. This is usually changing in the simulation to use
+% Set initial constraint.   This is usually changing in the simulation to use
 % the receding horizon
 % initial pose [-18.8, -12.26]
 % initial velocity [0, 0, 0]
