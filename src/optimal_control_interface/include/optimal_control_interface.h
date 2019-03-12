@@ -8,11 +8,13 @@
 #include <uav_abstraction_layer/GoToWaypoint.h>
 #include <boost/thread/thread.hpp>
 #include <geometry_msgs/TwistStamped.h>
+#include <geometry_msgs/PointStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <Eigen/Eigen>
 #include <multidrone_msgs/DirectorEvent.h>
 #include <nav_msgs/Odometry.h>
+#include <time.h> 
 
 // global vars
 
@@ -23,10 +25,13 @@ ros::ServiceClient go_to_waypoint_srv_;
 ros::Subscriber sub_position;
 ros::Subscriber sub_velocity;
 ros::Publisher path_rviz_pub;
+ros::Publisher path_no_fly_zone;
+ros::Publisher desired_pose_publisher;
+clock_t initial_time;
 
 ///////// solver params /////////
 
-const int time_horizon = 30; // time horizon
+const int time_horizon = 80; // time horizon
 const int n_states_variables = 9;
 const float hovering_distance = 0.5;
 
@@ -69,4 +74,6 @@ void init(ros::NodeHandle nh);
 bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz,std::vector<double> &desired_wp, std::vector<double> desired_vel, std::vector<double> &obst);
 geometry_msgs::Quaternion toQuaternion(double pitch, double roll, double yaw);
 void logToCsv(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz, int n_steps);
-void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::vector<double> &wps_z);
+void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::vector<double> &wps_z, std::vector<double> &desired_wp);
+void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]);
+void publishDesiredPoint(double x, double y,double z);
