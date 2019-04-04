@@ -25,7 +25,7 @@ namespace plt = matplotlibcpp;
 void ownPoseCallback(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
     own_pose.pose = msg->pose;
-    csv_pose << msg->pose.position.x << ", " << msg->pose.position.y << ", " << msg->pose.position.z << std::endl;
+    csv_ual << msg->pose.position.x << ", " << msg->pose.position.y << ", " << msg->pose.position.z << std::endl;
 }
 /** Drone velocity callback
  */
@@ -42,10 +42,34 @@ void init(ros::NodeHandle nh){
     path_no_fly_zone = nh.advertise<nav_msgs::Path>("/solver/noflyzone",1);
     csv_pose.open("/home/grvc/pose.csv");
     csv_pose << std::fixed << std::setprecision(5);
+    csv_ual.open("/home/grvc/ual.csv");
 
 }
 ///////////////// UTILITY FUNCTIONS ////////////////////
 
+/**
+ */
+
+void calculateDesiredPoint(int shooting_type, const std::vector<double> &target_pose, std::vector<double> &desired_pose, std::vector<double> desired_velocity){
+    switch(shooting_type){
+        //TODO
+        case orbital:
+            desired_pose[0] = target_pose[0];
+            desired_pose[1] = target_pose[1];
+            desired_pose[2] = target_pose[2];
+        break;
+        case lateral:
+            desired_pose[0] = target_pose[0];
+            desired_pose[1] = target_pose[1];
+            desired_pose[2] = target_pose[2];
+        break;
+        case flyover:
+            desired_pose[0] = target_pose[0];
+            desired_pose[1] = target_pose[1];
+            desired_pose[2] = target_pose[2];
+        break;
+    } 
+}
 
 /** Utility function for hovering
  */
@@ -106,7 +130,7 @@ void plottingResult(FORCESNLPsolver_output *myoutput){
 void logToCsv(std::vector<double> &x, std::vector<double> &y, std::vector<double> &z, std::vector<double> &vx, std::vector<double> &vy, std::vector<double> &vz, int n_steps){
     // logging all results
      for(int i=0; i<n_steps; i++){
-        csv_pose << own_pose.pose.position.x << ", " << own_pose.pose.position.y << ", " << own_pose.pose.position.z << std::endl;
+        csv_pose << x[i] << ", " << y[i] << ", " << z[i] << std::endl;
     }
 }
 /** Construct the no fly zone path to visualize it on RVIZ */
@@ -248,8 +272,6 @@ bool solverFunction(std::vector<double> &x, std::vector<double> &y, std::vector<
     // call the solver
     exitflag = FORCESNLPsolver_solve(&myparams, &myoutput, &myinfo, stdout, pt2Function);
     // save the output in a vector
-  
-
     x.push_back(myoutput.x01[position_x]);
     x.push_back(myoutput.x02[position_x]);
     x.push_back(myoutput.x03[position_x]);

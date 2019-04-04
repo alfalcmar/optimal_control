@@ -5,8 +5,8 @@
 #include <uav_abstraction_layer/TakeOff.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
-#include "uav_path_manager/GeneratePath.h"
-#include "uav_path_manager/GetGeneratedPath.h"
+//#include "uav_path_manager/GeneratePath.h"
+//#include "uav_path_manager/GetGeneratedPath.h"
 #include <thread>
 #include <uav_abstraction_layer/GoToWaypoint.h>
 #include <optimal_control_interface.h>
@@ -63,6 +63,8 @@ void UALthread(){
     ROS_INFO("thread initialized");
     int cont = start_point;
     while(ros::ok()){
+        ROS_INFO("waiting for the solver");
+  
         if(!x_ual.empty() || !y_ual.empty() || !z_ual.empty()) // if there is no trajectory, the ual is not called
         {
             if(solver_success){ // if the solver success
@@ -180,7 +182,6 @@ int main(int _argc, char **_argv)
 
 
     // taking off
-    ROS_INFO("taking off");
     uav_abstraction_layer::TakeOff srv;
     srv.request.blocking = true;
     srv.request.height = height_take_off;
@@ -204,6 +205,7 @@ int main(int _argc, char **_argv)
           x.clear();
           y.clear();
           z.clear();
+        ROS_INFO("calling solver");
         solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst);
 
         if(solver_success){

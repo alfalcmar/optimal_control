@@ -31,7 +31,7 @@ clock_t initial_time;
 
 ///////// solver params /////////
 
-const int time_horizon = 80; // time horizon
+const int time_horizon = 30; // time horizon
 const int n_states_variables = 9;
 const float hovering_distance = 0.5;
 
@@ -64,10 +64,16 @@ const float v_x = 0;
 const float v_y = 0;
 const float v_z = 0;
 
+// shooting actions types
+
+const int flyover = 0;
+const int orbital = 1;
+const int lateral = 2;
+
 // log
 
-std::ofstream csv_ual; // logging the trayectory
-std::ofstream csv_pose; // logging the pose
+std::ofstream csv_ual; // logging the pose
+std::ofstream csv_pose; // logging the trajectory
 
 
 void init(ros::NodeHandle nh);
@@ -77,3 +83,4 @@ void logToCsv(std::vector<double> &x, std::vector<double> &y, std::vector<double
 void publishPath(std::vector<double> &wps_x, std::vector<double> &wps_y, std::vector<double> &wps_z, std::vector<double> &desired_wp);
 void publishNoFlyZone(double point_1[2], double point_2[2],double point_3[2], double point_4[2]);
 void publishDesiredPoint(double x, double y,double z);
+void calculateDesiredPoint(int shooting_type, const std::vector<double> &target_pose, std::vector<double> &desired_pose, std::vector<double> desired_velocity);
