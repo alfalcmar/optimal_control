@@ -20,7 +20,7 @@ obst_x = -8.4;
 obst_y = -29.5;
 
 %% Problem dimensions
-model.N = 51;            % horizon length
+model.N = 50;            % horizon length
 model.nvar = 15;          % number of variables 9
 model.neq  = 12;          % number of equality constraints
 model.nh = 1;            % number of inequality constraints
@@ -57,8 +57,8 @@ model.E = [zeros(12,3) eye(12)]; % A(6x6) B(6*3)
 
 %% position, velocities and accelerations limits
 % upper/lower variable bounds lb <= x <= ub
-model.lb = [-100 -100 -100 -200 -200 0   -12 -12 -1 -100 -100 -100 -200 -200 0];
-model.ub = [+100 +100  100 +200 +200 +50   12 12  3 +100 +100 +100 +200 +200 +50];
+model.lb = [-5 -5 -7 -200 -200 0   -12 -12 -1 -200 -200 0 -12 -12 -1];
+model.ub = [+5 +5  7 +200 +200 +50  12  12  3 +200 +200 +50 +12 +12 2];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
@@ -76,7 +76,7 @@ model.xinitidx = 4:9;
 
 % Define solver options
 codeoptions = getOptions('FORCESNLPsolver');
-codeoptions.maxit = 800;    % Maximum number of iterations
+codeoptions.maxit = 700;    % Maximum number of iterations
 codeoptions.printlevel = 2; % Use printlevel = 2 to print progress (but not for timings)
 codeoptions.optlevel = 0;   % 0: no optimization, 1: optimize for size, 2: optimize for speed, 3: optimize for size & speed
 codeoptions.cleanup = false;
@@ -90,7 +90,7 @@ FORCES_NLP(model, codeoptions);
 % Set initial guess to start solver from:
 
 x0i = model.lb+(model.ub-model.lb)/2;
-x0i = [initial_x initial_y initial_z 2 3 2  1 1 2 1 0.5 3 2 1 1];
+x0i = [0.5 0.5 0.5 -18.8 -12.26 3  1 1 2 1 0.5 3 2 1 1];
 
 
 x0=repmat(x0i',model.N,1);

@@ -5,13 +5,22 @@ addpath('/home/grvc/Desktop/FORCES_PRO_CLIENT')
 import casadi.*;
 
 %% obstacle and target position
-radius = 6;
+radius = 4;
 tx = -8.4; 
 ty = -29.5;
+final_pose_x =7.65;
+final_pose_y =-55;
+final_pose_z = 3;
 
+initial_x = -18.8; %-18.8 -12.26
+initial_y = -12.26;
+initial_z = 3
+
+obst_x = -8.4;
+obst_y = -29.5;
 
 %% Problem dimensions
-model.N = 30;            % horizon length
+model.N = 50;            % horizon length
 model.nvar = 9;          % number of variables
 model.neq  = 6;          % number of equality constraints
 model.nh = 1;            % number of inequality constraints
@@ -57,8 +66,8 @@ model.E = [zeros(6,3) eye(6)]; % A(6x6) B(6*3)
 
 %% position, velocities and accelerations limits
 % upper/lower variable bounds lb <= x <= ub
-model.lb = [-100 -100 -100 -200 -200 0   -12 -12 -1];
-model.ub = [+100 +100 100 +200 +200 +50 12 12 3];
+model.lb = [-5 -5 -7 -200 -200 0   -12 -12 -1];
+model.ub = [+5 +5 7 +200 +200 +50 12 12 3];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
@@ -98,7 +107,7 @@ problem.x0=x0;
 % desired pose [7.65,-55,3]
 % desired velocity [0, 0, 0]
 % central point of the no_fly_zone [-2.4, -36.5]
-param = [7.65; -55; 3; 0.2741; -1.9811; 0; 0; 0; -8.4; -29.5; 0; 0];
+param = [7.65; -55; 3; 0.2741; -1.9811; 0; obst_x; obst_y; tx; ty; 0; 0];
 %       [pfx   pfy  pfz  vxf     vyf   vzf cx cy  tx    ty    vtx vty]
 
 problem.all_parameters=repmat(param, model.N,1);
@@ -107,7 +116,7 @@ problem.all_parameters=repmat(param, model.N,1);
 % the receding horizon
 % initial pose [-18.8, -12.26]
 % initial velocity [0, 0, 0]
-problem.xinit = [-18.8; -12.26; 3; 0; 0; 0];
+problem.xinit = [initial_x; initial_y; initial_z; 0; 0; 0];
 
 % Time to solve the NLP!
 [output,exitflag,info] = FORCESNLPsolver(problem);
@@ -173,18 +182,44 @@ xlabel('x (m)'); ylabel('y (m)');  zlabel('z (m)');
 % hold on
 % plot(x,y)
 
-circle(-2.4,-36.5,6)
+circle(obst_x,obst_y,radius)
 hold on 
 %circle(-2.4,-36.5,7)
 
 hold on
-initial_point = [-18.8 -12.26];
+initial_point = [initial_x initial_y]; 
 final_point = [7.65 -55];
 to_plot= [initial_point; final_point];
-plot(to_plot(:,1),to_plot(:,2),'b--');
+%plot(to_plot(:,1),to_plot(:,2),'b--');
 
 hold on
 plot(tx,ty,'rx')
 
+hold on
+plot(final_pose_x,final_pose_y,'bx', 'MarkerSize',10)
 
+wo=load('trajectory_wo.mat');
+
+plot(wo.TEMP(4,:),wo.TEMP(5,:),'g--');
+% %%%%%%% calculating yaw diff
+% yaw_diff=[];
+% % vector angle sum
+% for i= 2:49
+%     previous_yaw = atan2((ty-y(i-1)),(tx-x(i-1)));
+%     yaw = atan2((ty-y(i)),(tx-x(i)));
+%     yaw_diff=[yaw_diff;yaw-previous_yaw];
+% end
+% suma = sum(yaw_diff)
+% 
+% clear previous_yaw yaw_diff yaw
+% yaw_diff_wo = [];
+% for j= 2:49
+%     previous_yaw = atan2((ty-wo.TEMP(5,j-1)),(tx-wo.TEMP(4,j-1)));
+%     yaw = atan2((ty-wo.TEMP(5,j)),(tx-wo.TEMP(4,j)));
+%     yaw_diff_wo=[yaw_diff_wo;yaw-previous_yaw];
+% end
+% sum_wo = sum(yaw_diff_wo)
+
+title('TOP VIEW - FLYOVER')
+legend('cinematography term trajectory', 'No fly zone','Target','Desired point','without cinematography term')
 
