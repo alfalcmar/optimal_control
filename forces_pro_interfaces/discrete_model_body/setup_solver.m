@@ -23,7 +23,7 @@ obst_y = -29.5;
 model.N = 50;            % horizon length
 model.nvar = 15;          % number of variables 9
 model.neq  = 12;          % number of equality constraints
-model.nh = 1;            % number of inequality constraints
+model.nh = 2;            % number of inequality constraints
 model.npar = 14;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vty  tx-1  ty-1]
                          % [1    2   3   4   5   6  7  8  9  10  11  12    13   14 ]
        
@@ -62,11 +62,12 @@ model.ub = [+5 +5  7 +200 +200 +50  12  12  3 +200 +200 +50 +12 +12 2];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
-model.ineq = @(z,p)  (z(4)-p(7))^2 + (z(5)-p(8))^2   %% obstacle position as parameter
+model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2; %obstacle constraint
+                        atan2((z(4)*z(8)-z(5)*z(7)-p(9)*z(8)+p(10)*z(7)),(p(9)*z(7)-z(4)*z(7)-z(5)*z(8)+p(10)*z(8)))]  %gimbal angle constraint
 
 % Upper/lower bounds for inequalities
-model.hu = [inf]';
-model.hl = [radius^2]';  %hardcoded for testing r^2
+model.hu = [inf; pi]';
+model.hl = [radius^2; -pi]';  %hardcoded for testing r^2
 
 %% Initial and final conditions
 
@@ -89,7 +90,7 @@ FORCES_NLP(model, codeoptions);
 %% Call solver
 % Set initial guess to start solver from:
 
-x0i = model.lb+(model.ub-model.lb)/2;
+%x0i = model.lb+(model.ub-model.lb)/2;
 x0i = [0.5 0.5 0.5 -18.8 -12.26 3  1 1 2 1 0.5 3 2 1 1];
 
 
