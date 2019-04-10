@@ -1,4 +1,4 @@
-function J = objfun( z,p)
+function J = objfunGlobal( z,p)
 %OBJFUN Summary of this function goes here
 
 % minimize the accelerations ||u{k}||^2
@@ -6,12 +6,12 @@ function J = objfun( z,p)
 % the target in global coordinate system
 
 % weights
-cinematography_term = 10^4;
+cinematography_term = 1000;
 w1 = cinematography_term;
-accelerations = 10;
+accelerations = 1;
 w2 = accelerations;
 
-J = w2*(z(1)^2+z(2)^2+z(3)^2) + w1*(((z(8)-p(12))*(z(4)-p(9))-(z(5)-p(10))*(z(7)-p(11)))^2)/(((z(4)-p(9))^2+(z(5)-p(10))^2)^2); % cinematography term
+J = w2*(z(1)^2+z(2)^2+z(3)^2) + w1*(((z(8)-p(12))*(z(4)-p(9))-(z(5)-p(10))*(z(7)-p(11)))^2)/(((z(4)-p(9))^2+(z(5)-p(10))^2)^2) % cinematography term
                                 
 
 

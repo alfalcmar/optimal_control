@@ -36,7 +36,7 @@ t= 0.1;  %% time step - integrator
 %% z = [ax ay az px py pz vx vy vz]  => [control states]
 %% Objective function 
 
-model.objective = @objfun;  %% function objective (included in the same folder)
+model.objective = @objfunGlobal;  %% function objective (included in the same folder)
 model.objectiveN = @objfunN; %% N function obective (included in the same folder)
 
 %% MODEL %%%%%%%%%%%%%%%
@@ -53,21 +53,12 @@ continuous_dynamics = @(x,u) [x(4);  % v_x
 
 model.eq = @(z) RK4(z(4:9), z(1:3), continuous_dynamics, integrator_stepsize);
 
-%% Discrete model (we are using the discrete model)
-%   x_{k+1} = A*x_{k} + B*u_{k}
-% A = [I_3 delta_t*I_3; zeros_3 I_3] B = (delta_t^2)/2*I_3; delta_t*I_3]
-
-% A = [eye(3) t*eye(3); zeros(3) eye(3)];
-% B = [(t^2)/2*eye(3); t*eye(3)];
-% 
-% model.eq = @(z) [ A*[z(4);z(5);z(6);z(7);z(8);z(9)] + B*[z(1);z(2);z(3)]];
-% 
-model.E = [zeros(6,3) eye(6)]; % A(6x6) B(6*3)
+model.E = [zeros(6,3) eye(6)]; 
 
 %% position, velocities and accelerations limits
 % upper/lower variable bounds lb <= x <= ub
-model.lb = [-5 -5 -7 -200 -200 0   -12 -12 -1];
-model.ub = [+5 +5 7 +200 +200 +50 12 12 3];
+model.lb = [-5 -5 -7 -200 -200 0   -5 -5 -1];
+model.ub = [+5 +5 7 +200 +200 +50 5 5 3];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
@@ -98,7 +89,7 @@ FORCES_NLP(model, codeoptions);
 %% Call solver
 % Set initial guess to start solver from:
 
-x0i = model.lb+(model.ub-model.lb)/2;
+x0i = model.lb+(model.ub-model.lb)/2+1;
 x0=repmat(x0i',model.N,1);
 problem.x0=x0;
 
@@ -152,7 +143,7 @@ v_y = TEMP(8,:);
 v_z = TEMP(9,:);
 
 
-plot(x,y, 'LineWidth', 3); hold on
+plot(x,y,'b', 'LineWidth', 3); hold on
 hold on
 xlabel('x (m)'); ylabel('y (m)');  zlabel('z (m)');
 
@@ -198,9 +189,9 @@ plot(tx,ty,'rx')
 hold on
 plot(final_pose_x,final_pose_y,'bx', 'MarkerSize',10)
 
-wo=load('trajectory_wo.mat');
-
-plot(wo.TEMP(4,:),wo.TEMP(5,:),'g--');
+% wo=load('trajectory_wo.mat');
+% 
+% plot(wo.TEMP(4,:),wo.TEMP(5,:),'g--');
 % %%%%%%% calculating yaw diff
 % yaw_diff=[];
 % % vector angle sum
@@ -221,5 +212,5 @@ plot(wo.TEMP(4,:),wo.TEMP(5,:),'g--');
 % sum_wo = sum(yaw_diff_wo)
 
 title('TOP VIEW - FLYOVER')
-legend('cinematography term trajectory', 'No fly zone','Target','Desired point','without cinematography term')
+legend('cinematography term trajectory', 'No fly zone','Target','Desired point')
 
