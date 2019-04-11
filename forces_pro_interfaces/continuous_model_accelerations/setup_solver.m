@@ -20,12 +20,12 @@ obst_x = -8.4;
 obst_y = -29.5;
 
 %% Problem dimensions
-model.N = 80;            % horizon length
+model.N = 100;            % horizon length
 model.nvar = 9;          % number of variables
 model.neq  = 6;          % number of equality constraints
-model.nh = 3;            % number of inequality constraints
-model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty tz vtx vtz]
-                         % [1    2   3   4   5   6  7  8  9  10 11 12   13]
+model.nh = 1;            % number of inequality constraints
+model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vty]
+                         % [1    2   3   4   5   6  7  8  9  10  11   12]
        
 t= 0.1;  %% time step - integrator
 
@@ -62,19 +62,19 @@ model.ub = [+5 +5 7 +200 +200 +50 5 5 3];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
-model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
-                       atan2(-z(6),sqrt((p(9)-z(4))^2+p(10)-z(5))^2);
-                       atan2(p(10)-z(5),p(9)-z(4))-atan2(z(8),z(7))];
+model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2];
+                       %atan2(-z(6),sqrt((p(9)-z(4))^2+p(10)-z(5))^2); % relative pitch bounds
+                       %atan2(p(10)-z(5),p(9)-z(4))-atan2(z(8),z(7))]; % relative yaw bounds
                  
-% p=[pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
+% p=[pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vty]
 %p= [1    2   3   4   5   6  7  8   9 10 11 12 ]
 
 % z = [ax ay az px py pz vx vy vz]  => [control states]
 %  z =  1  2  3  4  5  6  7  8  9
                    
 % Upper/lower bounds for inequalities
-model.hu = [inf;0;pi]';
-model.hl = [radius^2;-pi/4;-pi]';  %hardcoded for testing r^2
+model.hu = [inf;]';
+model.hl = [radius^2;]';  %hardcoded for testing r^2
 
 %% Initial and final conditions
 
@@ -97,10 +97,31 @@ FORCES_NLP(model, codeoptions);
 %% Call solver
 % Set initial guess to start solver from:
 
+%initial guess as a static point
 x0i = model.lb+(model.ub-model.lb)/2+1;
 x0=repmat(x0i',model.N,1);
-problem.x0=x0;
+ problem.x0=x0;
 
+
+%initial guess as straight line
+
+% x0=[];
+% drone_vel_x = (final_pose_x-initial_x)/(model.N*t);
+% drone_vel_y = (final_pose_y-initial_y)/(model.N*t);
+% for k=1:model.N
+%     x0=[x0;0.01;0.01;0.01;initial_x+(final_pose_x-initial_x)*(k-1)/(model.N-1);initial_y+(final_pose_y-initial_y)*(k-1)/(model.N-1);initial_z;drone_vel_x;drone_vel_y;0];
+%         
+% end
+
+%initial guess as trajectory without cinematography term
+% wo=load('trajectory_wo.mat');
+
+% traj = load('trajectory_without_term');
+% x0=[];
+% for i=1:model.N
+%     x0=[x0;traj.TEMP(:,i)];
+% end       
+% problem.x0=x0;
 
 % Set parameters with the final point and final velocity  
 % desired pose [7.65,-55,3]
