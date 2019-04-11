@@ -20,12 +20,12 @@ obst_x = -8.4;
 obst_y = -29.5;
 
 %% Problem dimensions
-model.N = 80;            % horizon length
-model.nvar = 9;          % number of variables
-model.neq  = 6;          % number of equality constraints
-model.nh = 3;            % number of inequality constraints
-model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty tz vtx vtz]
-                         % [1    2   3   4   5   6  7  8  9  10 11 12   13]
+model.N = 30;            % horizon length
+model.nvar = 11;          % number of variables 3 control inputs + 10 state variables  [ax ay az px py pz vx vy vz tx ty]
+model.neq  = 8;          % number of equality constraints
+model.nh = 1;            % number of inequality constraints
+model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
+                         % [1    2   3   4   5   6  7  8  9  10 11 12  ]
        
 t= 0.1;  %% time step - integrator
 
@@ -36,7 +36,7 @@ t= 0.1;  %% time step - integrator
 %% z = [ax ay az px py pz vx vy vz]  => [control states]
 %% Objective function 
 
-model.objective = @objfunGlobal;  %% function objective (included in the same folder)
+model.objective = @objfunGlobal_target_model;  %% function objective (included in the same folder)
 model.objectiveN = @objfunN; %% N function obective (included in the same folder)
 
 %% MODEL %%%%%%%%%%%%%%%
@@ -44,47 +44,50 @@ model.objectiveN = @objfunN; %% N function obective (included in the same folder
 % We use an explicit RK4 integrator here to discretize continuous dynamics:
 m=1; I=1; % physical constants of the model
 integrator_stepsize = 0.1;
-continuous_dynamics = @(x,u) [x(4);  % v_x
+continuous_dynamics = @(x,u,par) [x(4);  % v_x
                               x(5);  % v_y
                               x(6);  % v_z
                               u(1);
                               u(2);
-                              u(3)];         
+                              u(3);
+                              par(1); % vt_x
+                              par(2);  % vt_x = cte
+                              ]; 
 
-model.eq = @(z) RK4(z(4:9), z(1:3), continuous_dynamics, integrator_stepsize);
+model.eq = @(z,p) RK4(z(4:11), z(1:3), continuous_dynamics, integrator_stepsize,p(11:12)); % Using CasADi RK4 integrator
 
-model.E = [zeros(6,3) eye(6)]; 
+model.E = [zeros(8,3) eye(8)];
 
 %% position, velocities and accelerations limits
 % upper/lower variable bounds lb <= x <= ub
-model.lb = [-5 -5 -7 -200 -200 0   -5 -5 -1];
-model.ub = [+5 +5 7 +200 +200 +50 5 5 3];
+model.lb = [-5 -5 -7 -200 -200 0   -5 -5 -1 -200 -200];
+model.ub = [+5 +5 7 +200 +200 +50 5 5 3 200 200];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
-model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
-                       atan2(-z(6),sqrt((p(9)-z(4))^2+p(10)-z(5))^2);
-                       atan2(p(10)-z(5),p(9)-z(4))-atan2(z(8),z(7))];
-                 
-% p=[pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
-%p= [1    2   3   4   5   6  7  8   9 10 11 12 ]
+model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2];
+                      %atan2(z(11)-z(5),z(10)-z(4))-atan2(z(8),z(7))]; % YAW  
+                      %atan2(-z(6),sqrt((z(10)-z(4))^2+z(11)-z(5))^2);  % PITCH
+                  
+% [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
+% [1    2   3   4   5   6  7  8  9  10 11 12  ]
 
-% z = [ax ay az px py pz vx vy vz]  => [control states]
-%  z =  1  2  3  4  5  6  7  8  9
+% z = [ax ay az px py pz vx vy vz tx ty]  => [control states]
+%  z =  1  2  3  4  5  6  7  8  9 10 11
                    
 % Upper/lower bounds for inequalities
-model.hu = [inf;0;pi]';
-model.hl = [radius^2;-pi/4;-pi]';  %hardcoded for testing r^2
+model.hu = [inf;]';
+model.hl = [radius^2;]';  %hardcoded for testing r^2
 
 %% Initial and final conditions
 
 % Velocity and position of the vehicle as initial constraints
-model.xinitidx = 4:9;
+model.xinitidx = 4:11;
 
 
 % Define solver options
 codeoptions = getOptions('FORCESNLPsolver');
-codeoptions.maxit = 800;    % Maximum number of iterations
+codeoptions.maxit = 10000;    % Maximum number of iterations
 codeoptions.printlevel = 2; % Use printlevel = 2 to print progress (but not for timings)
 codeoptions.optlevel = 0;   % 0: no optimization, 1: optimize for size, 2: optimize for speed, 3: optimize for size & speed
 codeoptions.cleanup = false;
@@ -93,6 +96,12 @@ codeoptions.cleanup = false;
 
 %% Generate forces solver
 FORCES_NLP(model, codeoptions);
+
+%calculate the initial velocity of the target
+
+t_velxy = 1;
+t_vel_x = t_velxy*(final_pose_x-tx)/sqrt((final_pose_x-tx)^2+(final_pose_y-ty)^2);
+t_vel_y = t_velxy*(final_pose_y-ty)/sqrt((final_pose_x-tx)^2+(final_pose_y-ty)^2);
 
 %% Call solver
 % Set initial guess to start solver from:
@@ -106,7 +115,8 @@ problem.x0=x0;
 % desired pose [7.65,-55,3]
 % desired velocity [0, 0, 0]
 % central point of the no_fly_zone [-2.4, -36.5]
-param = [7.65; -55; 3; 0; 0; 0; obst_x; obst_y; tx; ty; 0; 0];
+
+param = [7.65; -55; 3; 0; 0; 0; obst_x; obst_y; tx; ty; t_vel_x; t_vel_y];
 %       [pfx   pfy  pfz  vxf     vyf   vzf cx cy  tx    ty    vtx vty]
 
 problem.all_parameters=repmat(param, model.N,1);
@@ -115,7 +125,9 @@ problem.all_parameters=repmat(param, model.N,1);
 % the receding horizon
 % initial pose [-18.8, -12.26]
 % initial velocity [0, 0, 0]
-problem.xinit = [initial_x; initial_y; initial_z; 0; 0; 0];
+%model.xinitidx = 4:13;
+
+problem.xinit = [initial_x; initial_y; initial_z; 0; 0; 0; tx; ty;];
 
 % Time to solve the NLP!
 [output,exitflag,info] = FORCESNLPsolver(problem);
@@ -149,6 +161,8 @@ z = TEMP(6,:);
 v_x = TEMP(7,:);
 v_y = TEMP(8,:);
 v_z = TEMP(9,:);
+t_x = TEMP(10,:);
+t_y = TEMP(11,:);
 
 
 plot(x,y,'b', 'LineWidth', 3); hold on
@@ -196,6 +210,8 @@ plot(tx,ty,'rx')
 
 hold on
 plot(final_pose_x,final_pose_y,'bx', 'MarkerSize',10)
+hold on
+plot(t_x,t_y,'k')
 
 % wo=load('trajectory_wo.mat');
 % 
