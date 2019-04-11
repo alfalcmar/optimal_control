@@ -23,7 +23,7 @@ obst_y = -29.5;
 model.N = 50;            % horizon length
 model.nvar = 9;          % number of variables
 model.neq  = 6;          % number of equality constraints
-model.nh = 1;            % number of inequality constraints
+model.nh = 2;            % number of inequality constraints
 model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty tz vtx vtz]
                          % [1    2   3   4   5   6  7  8  9  10 11 12   13]
        
@@ -62,11 +62,15 @@ model.ub = [+5 +5 7 +200 +200 +50 5 5 3];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
-model.ineq = @(z,p)  (z(4)-p(7))^2 + (z(5)-p(8))^2   %% obstacle position as parameter
+model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
+                       asin(z(6)/sqrt((z(4))^2 + (z(5))^2 + z(6)^2 + 0.001));]   %TODO: include yaw constraint
 
+% p=[pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
+%p= [1    2   3   4   5   6  7  8   9 10 11 12 ]
+                   
 % Upper/lower bounds for inequalities
-model.hu = [inf]';
-model.hl = [radius^2]';  %hardcoded for testing r^2
+model.hu = [inf;3*pi/4;]';
+model.hl = [radius^2;-3*pi/4;]';  %hardcoded for testing r^2
 
 %% Initial and final conditions
 
@@ -98,7 +102,7 @@ problem.x0=x0;
 % desired pose [7.65,-55,3]
 % desired velocity [0, 0, 0]
 % central point of the no_fly_zone [-2.4, -36.5]
-param = [7.65; -55; 3; 0.2741; -1.9811; 0; obst_x; obst_y; tx; ty; 0; 0];
+param = [7.65; -55; 3; 0; 0; 0; obst_x; obst_y; tx; ty; 0; 0];
 %       [pfx   pfy  pfz  vxf     vyf   vzf cx cy  tx    ty    vtx vty]
 
 problem.all_parameters=repmat(param, model.N,1);
