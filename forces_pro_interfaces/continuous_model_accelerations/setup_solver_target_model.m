@@ -18,16 +18,18 @@ initial_z = 3;
 
 obst_x = -8.4;
 obst_y = -29.5;
+obst_z = 3;
 
 %% Problem dimensions
-model.N = 30;            % horizon length
+model.N = 100;            % horizon length
 model.nvar = 11;          % number of variables 3 control inputs + 10 state variables  [ax ay az px py pz vx vy vz tx ty]
 model.neq  = 8;          % number of equality constraints
-model.nh = 1;            % number of inequality constraints
+model.nh = 2;            % number of inequality constraints
 model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
                          % [1    2   3   4   5   6  7  8  9  10 11 12  ]
        
 t= 0.1;  %% time step - integrator
+epsilon = 0.001;
 
 % time step and horizon lenght to use the solver in the receding horizon in
 % real experiments
@@ -65,9 +67,9 @@ model.ub = [+5 +5 7 +200 +200 +50 5 5 3 200 200];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
-model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2];
+model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
+                    atan2(sqrt((z(4)-p(9))^2 + (z(5)-p(10))^2 + epsilon), z(6))]; % relative pitch bounds
                       %atan2(z(11)-z(5),z(10)-z(4))-atan2(z(8),z(7))]; % YAW  
-                      %atan2(-z(6),sqrt((z(10)-z(4))^2+z(11)-z(5))^2);  % PITCH
                   
 % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
 % [1    2   3   4   5   6  7  8  9  10 11 12  ]
@@ -76,8 +78,8 @@ model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2];
 %  z =  1  2  3  4  5  6  7  8  9 10 11
                    
 % Upper/lower bounds for inequalities
-model.hu = [inf;]';
-model.hl = [radius^2;]';  %hardcoded for testing r^2
+model.hu = [inf;pi/2]';
+model.hl = [radius^2;3*pi/8]';  %hardcoded for testing r^2
 
 %% Initial and final conditions
 
@@ -151,6 +153,7 @@ for i=1:model.N
 
 end
 
+
 %% plotting output
 u_x = TEMP(1,:);
 u_y = TEMP(2,:);
@@ -164,6 +167,13 @@ v_z = TEMP(9,:);
 t_x = TEMP(10,:);
 t_y = TEMP(11,:);
 
+for k=1:model.N
+   TEMP(10,k) =atan2(ty-y(k),tx-x(k)); %yaw 
+   TEMP(11,k) = atan2(z(k),sqrt((ty-y(k))^2+(tx-x(k))^2));% pitch 
+end
+
+shot_duration = 10;
+metrics(TEMP, obst_x, obst_y, obst_z,radius, [initial_x initial_y initial_z], [final_pose_x final_pose_y final_pose_z], t, shot_duration)
 
 plot(x,y,'b', 'LineWidth', 3); hold on
 hold on
