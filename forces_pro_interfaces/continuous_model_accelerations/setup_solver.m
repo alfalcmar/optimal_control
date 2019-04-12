@@ -21,15 +21,15 @@ obst_y = -29.5;
 obst_z = 3;
 
 %% Problem dimensions
-model.N = 50;            % horizon length
+model.N = 100;            % horizon length
 model.nvar = 9;          % number of variables
 model.neq  = 6;          % number of equality constraints
 model.nh = 2;            % number of inequality constraints
 model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vty]
                          % [1    2   3   4   5   6  7  8  9  10  11   12]
-       
 t= 0.1;  %% time step - integrator
 
+epsilon = 0.001;
 % time step and horizon lenght to use the solver in the receding horizon in
 % real experiments
 
@@ -64,7 +64,7 @@ model.ub = [+5 +5 7 +200 +200 +50 5 5 3];
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
 model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
-                      atan2(sqrt((z(4)-p(9))^2 + (z(5)-p(10))^2 + 0.001), z(6))]; % relative pitch bounds
+                      atan2(sqrt((z(4)-p(9))^2 + (z(5)-p(10))^2 + epsilon), z(6))]; % relative pitch bounds
                        %atan2(p(10)-z(5),p(9)-z(4))-atan2(z(8),z(7))]; % relative yaw bounds
                  
 % p=[pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vty]
@@ -74,8 +74,8 @@ model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
 %  z =  1  2  3  4  5  6  7  8  9
                    
 % Upper/lower bounds for inequalities
-model.hu = [inf;pi/2]';
-model.hl = [radius^2;3*pi/8]';  %hardcoded for testing r^2
+model.hu = [inf;pi/2;]';
+model.hl = [radius^2;3*pi/8;]';  %hardcoded for testing r^2
 
 %% Initial and final conditions
 
@@ -177,7 +177,8 @@ for k=1:model.N
    TEMP(11,k) = atan2(z(k),sqrt((ty-y(k))^2+(tx-x(k))^2));% pitch 
 end
 
-metrics(TEMP, obst_x, obst_y, obst_z,radius, [initial_x initial_y initial_z], [final_pose_x final_pose_y final_pose_z], t)
+shot_duration = 10;
+metrics(TEMP, obst_x, obst_y, obst_z,radius, [initial_x initial_y initial_z], [final_pose_x final_pose_y final_pose_z], t, shot_duration)
 
 
 plot(x,y,'b', 'LineWidth', 3); hold on

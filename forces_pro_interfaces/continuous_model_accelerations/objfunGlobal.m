@@ -4,14 +4,14 @@ function J = objfunGlobal( z,p)
 % minimize the accelerations ||u{k}||^2
 % minimize the derivative of x-y angle of the vector that is pointing to
 % the target in global coordinate system
-
+epsilon = 0.001;
 % weights
 cinematography_term = 1;
 w1 = cinematography_term;
 accelerations = 1;
 w2 = accelerations;
 
-J = w2*(z(1)^2+z(2)^2+z(3)^2) + w1*(((z(8)-p(12))*(z(4)-p(9))-(z(5)-p(10))*(z(7)-p(11)))^2)/(((z(4)-p(9))^2+(z(5)-p(10))^2)) % cinematography term
+J = w2*(z(1)^2+z(2)^2+z(3)^2) + w1*(((z(8)-p(12))*(z(4)-p(9))-(z(5)-p(10))*(z(7)-p(11)))^2)/(((z(4)-p(9))^2+(z(5)-p(10))^2)+epsilon) % cinematography term
                                 
 
 
