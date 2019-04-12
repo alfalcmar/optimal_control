@@ -41,7 +41,6 @@ desired_path = [];
 path_error = [];
 
 for k=1:N
-   %next_pose = initial_pose+(final_pose-initial_pose)*(k-1)/(N-1);
    next_pose = initial_pose+(final_pose-initial_pose)*((k-1)*time_step)/shot_duration;
    desired_path = [desired_path next_pose'];
    path_error = [path_error norm(pose(:,k)-desired_path(:,k))];
