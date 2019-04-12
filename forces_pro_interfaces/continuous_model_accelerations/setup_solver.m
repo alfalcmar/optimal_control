@@ -18,12 +18,13 @@ initial_z = 3;
 
 obst_x = -8.4;
 obst_y = -29.5;
+obst_z = 3;
 
 %% Problem dimensions
-model.N = 100;            % horizon length
+model.N = 50;            % horizon length
 model.nvar = 9;          % number of variables
 model.neq  = 6;          % number of equality constraints
-model.nh = 1;            % number of inequality constraints
+model.nh = 2;            % number of inequality constraints
 model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vty]
                          % [1    2   3   4   5   6  7  8  9  10  11   12]
        
@@ -62,8 +63,8 @@ model.ub = [+5 +5 7 +200 +200 +50 5 5 3];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
-model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2];
-                       %atan2(-z(6),sqrt((p(9)-z(4))^2+p(10)-z(5))^2); % relative pitch bounds
+model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
+                      atan2(sqrt((z(4)-p(9))^2 + (z(5)-p(10))^2 + 0.001), z(6))]; % relative pitch bounds
                        %atan2(p(10)-z(5),p(9)-z(4))-atan2(z(8),z(7))]; % relative yaw bounds
                  
 % p=[pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vty]
@@ -73,8 +74,8 @@ model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2];
 %  z =  1  2  3  4  5  6  7  8  9
                    
 % Upper/lower bounds for inequalities
-model.hu = [inf;]';
-model.hl = [radius^2;]';  %hardcoded for testing r^2
+model.hu = [inf;pi/2]';
+model.hl = [radius^2;3*pi/8]';  %hardcoded for testing r^2
 
 %% Initial and final conditions
 
@@ -100,7 +101,7 @@ FORCES_NLP(model, codeoptions);
 %initial guess as a static point
 x0i = model.lb+(model.ub-model.lb)/2+1;
 x0=repmat(x0i',model.N,1);
- problem.x0=x0;
+problem.x0=x0;
 
 
 %initial guess as straight line
@@ -171,6 +172,13 @@ v_x = TEMP(7,:);
 v_y = TEMP(8,:);
 v_z = TEMP(9,:);
 
+for k=1:model.N
+   TEMP(10,k) =atan2(ty-y(k),tx-x(k)); %yaw 
+   TEMP(11,k) = atan2(z(k),sqrt((ty-y(k))^2+(tx-x(k))^2));% pitch 
+end
+
+metrics(TEMP, obst_x, obst_y, obst_z,radius, [initial_x initial_y initial_z], [final_pose_x final_pose_y final_pose_z], t)
+
 
 plot(x,y,'b', 'LineWidth', 3); hold on
 hold on
@@ -239,6 +247,7 @@ plot(final_pose_x,final_pose_y,'bx', 'MarkerSize',10)
 %     yaw_diff_wo=[yaw_diff_wo;yaw-previous_yaw];
 % end
 % sum_wo = sum(yaw_diff_wo)
+
 
 title('TOP VIEW - FLYOVER')
 legend('cinematography term trajectory', 'No fly zone','Target','Desired point')
