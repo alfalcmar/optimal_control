@@ -8,7 +8,7 @@ import casadi.*;
 %% parameters
 cntrl_freq = 10; % control frequency (Hz)
 simulation_time = 15;  % duration of the simulation (seg)
-radius = 4; %obstacle dimension
+radius = 4; %no fly zone dimension (m)
 final_pose = [4.8 -48.5 3]; %final pose
 final_vel = [0 0 0];
 t_init = [-8.4 -29.5]; %initial target pose
@@ -39,7 +39,8 @@ x0 = [];
 % initial guess
 if k==1
     aux = final_pose - initial_pose;
-    x0i = [0.5 0.5 0.5 -18.8 -12.26 3  1 1 2];
+    
+    x0i = [0.5 0.5 0.5 -18.8 -12.26 3  1 1 2 t_init(1) t_init(2)];
     x0=repmat(x0i',N,1);
 else % initial guess is the previous trajectory
 
@@ -51,7 +52,7 @@ end
 problem.x0=x0;
 param = [final_pose(1); final_pose(2); final_pose(3); final_vel(1); final_vel(2); final_vel(3); obst_x; obst_y; t_init(1)+tvx_init*(k-1); t_init(2)+tvy_init*(k-1); tvx_init ; tvy_init];
 problem.all_parameters=repmat(param, N,1);
-problem.xinit = [initial_pose(1); initial_pose(2); initial_pose(3); v_x_init; v_y_init; v_z_init];
+problem.xinit = [initial_pose(1); initial_pose(2); initial_pose(3); v_x_init; v_y_init; v_z_init; t_init(1); t_init(2)];
 
 % Time to solve the NLP!
 [output,exitflag,info] = FORCESNLPsolver(problem);
