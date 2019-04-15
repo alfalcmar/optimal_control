@@ -6,13 +6,14 @@ function J = objfunGlobal( z,p)
 % the target in global coordinate system
 epsilon = 0.001;
 % weights
-cinematography_term = 10;
-w1 = cinematography_term;
+yaw = 1;
+w1 = yaw;
 accelerations = 1;
 w2 = accelerations;
+w3 = 1000
 
-J = w2*(z(1)^2+z(2)^2+z(3)^2) + w1*(((p(12)-z(8))*(z(10)-z(4))-(z(11)-z(5))*(p(11)-z(7)))^2)/(((z(4)-z(10))^2+(z(5)-z(11))^2)+epsilon); %cinematography term yaw derivative
-% w0*pith_derivative_cinematography_term //TO INCLUDE
+J = w2*(z(1)^2+z(2)^2+z(3)^2) + 10000*(z(6)-3)^2+ w1*(((z(8)-p(12))*(z(4)-z(10))-(z(5)-z(11))*(z(7)-p(11)))^2)/(((z(4)-z(10))^2+(z(5)-z(11))^2)+epsilon) + ...
+                                w3*(((z(4)-z(10))*z(6)*(z(7)-p(11)) + (z(5)-z(11))*z(6)*(z(8)-p(12)) - z(9)*((z(4)-z(10))^2 + (z(5)-z(11))^2))^2/(epsilon+((z(4)-z(10))^2 + (z(5)-z(11))^2 + z(6)^2)^2*(epsilon+(z(4)-z(10))^2 + (z(5)-z(11))^2)));
                                 
 
 

@@ -21,7 +21,7 @@ obst_y = -29.5;
 obst_z = 3;
 
 %% Problem dimensions
-model.N = 100;            % horizon length
+model.N = 50;            % horizon length
 model.nvar = 11;          % number of variables 3 control inputs + 10 state variables  [ax ay az px py pz vx vy vz tx ty]
 model.neq  = 8;          % number of equality constraints
 model.nh = 2;            % number of inequality constraints
