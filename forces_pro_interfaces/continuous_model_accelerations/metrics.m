@@ -47,7 +47,7 @@ for k=1:N
 end
 
 mean_average_error = mean(path_error);
-fprintf('The average error to the desired path: %d \n', min_dist);
+fprintf('The average error to the desired path: %d \n', mean_average_error);
 
 %% sumatory of accelerations
 accel= [];

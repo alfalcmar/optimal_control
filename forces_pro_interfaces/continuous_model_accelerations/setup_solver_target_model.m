@@ -21,10 +21,10 @@ obst_y = -29.5;
 obst_z = 3;
 
 %% Problem dimensions
-model.N = 50;            % horizon length
+model.N = 100;            % horizon length
 model.nvar = 11;          % number of variables 3 control inputs + 10 state variables  [ax ay az px py pz vx vy vz tx ty]
 model.neq  = 8;          % number of equality constraints
-model.nh = 2;            % number of inequality constraints
+model.nh = 3;            % number of inequality constraints
 model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
                          % [1    2   3   4   5   6  7  8  9  10 11 12  ]
        
@@ -65,21 +65,21 @@ model.E = [zeros(8,3) eye(8)];
 model.lb = [-5 -5 -7 -200 -200 0   -5 -5 -1 -200 -200];
 model.ub = [+5 +5 7 +200 +200 +50 5 5 3 200 200];
 
-%% nonlinear inequalities
+% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
 model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
-                    atan2(sqrt((z(4)-p(9))^2 + (z(5)-p(10))^2 + epsilon), z(6))]; % relative pitch bounds
-                      %atan2(z(11)-z(5),z(10)-z(4))-atan2(z(8),z(7))]; % YAW  
+                      atan2(sqrt((z(4)-z(10))^2 + (z(5)-z(11))^2 + epsilon), z(6)); % global pitch constarint
+                      atan2(z(11)-z(5)+epsilon,z(10)-z(4)+epsilon)-atan2(z(8)+epsilon,z(7)+epsilon)]; % YAW relative constraint
                   
-% [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
-% [1    2   3   4   5   6  7  8  9  10 11 12  ]
+             
 
 % z = [ax ay az px py pz vx vy vz tx ty]  => [control states]
 %  z =  1  2  3  4  5  6  7  8  9 10 11
                    
 % Upper/lower bounds for inequalities
-model.hu = [inf;pi/2]';
-model.hl = [radius^2;3*pi/8]';  %hardcoded for testing r^2
+model.hu = [inf;pi/2;4*pi/5]';
+model.hl = [radius^2;3*pi/8;-5*pi/6]';  %hardcoded for testing r^2
+
 
 %% Initial and final conditions
 
@@ -101,7 +101,7 @@ FORCES_NLP(model, codeoptions);
 
 %calculate the initial velocity of the target
 
-t_velxy = 1;
+t_velxy = 1.5;
 t_vel_x = t_velxy*(final_pose_x-tx)/sqrt((final_pose_x-tx)^2+(final_pose_y-ty)^2);
 t_vel_y = t_velxy*(final_pose_y-ty)/sqrt((final_pose_x-tx)^2+(final_pose_y-ty)^2);
 
@@ -169,7 +169,10 @@ t_y = TEMP(11,:);
 
 for k=1:model.N
    TEMP(10,k) =atan2(ty-y(k),tx-x(k)); %yaw 
-   TEMP(11,k) = atan2(z(k),sqrt((ty-y(k))^2+(tx-x(k))^2));% pitch 
+   TEMP(11,k) = atan2(z(k),sqrt((ty-y(k))^2+(tx-x(k))^2));% pitch
+   TEMP(12,k) = atan2(ty-x(k)+epsilon,tx-x(k)+epsilon)-atan2(v_y(k)+epsilon,v_x(k)+epsilon); % YAW  
+
+   TEMP(13,k) = atan2(sqrt((x(k)-tx)^2 + (y(k)-ty)^2 + epsilon), z(k));
 end
 
 shot_duration = 10;
