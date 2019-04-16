@@ -168,11 +168,9 @@ t_x = TEMP(10,:);
 t_y = TEMP(11,:);
 
 for k=1:model.N
-   TEMP(10,k) =atan2(ty-y(k),tx-x(k)); %yaw 
-   TEMP(11,k) = atan2(z(k),sqrt((ty-y(k))^2+(tx-x(k))^2));% pitch
-   TEMP(12,k) = atan2(ty-x(k)+epsilon,tx-x(k)+epsilon)-atan2(v_y(k)+epsilon,v_x(k)+epsilon); % YAW  
-
-   TEMP(13,k) = atan2(sqrt((x(k)-tx)^2 + (y(k)-ty)^2 + epsilon), z(k));
+   TEMP(12,k) =atan2(ty-y(k),tx-x(k)); %yaw global
+   TEMP(13,k) = atan2(z(k),sqrt((ty-y(k))^2+(tx-x(k))^2));% pitch
+   TEMP(14,k) = atan2(ty-x(k)+epsilon,tx-x(k)+epsilon)-atan2(v_y(k)+epsilon,v_x(k)+epsilon); % YAW  relative 
 end
 
 shot_duration = 10;
