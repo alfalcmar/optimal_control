@@ -43,10 +43,10 @@ path_error = [];
 for k=1:N
    next_pose = initial_pose+(final_pose-initial_pose)*((k-1)*time_step)/shot_duration;
    desired_path = [desired_path next_pose'];
-   path_error = [path_error norm(pose(:,k)-desired_path(:,k))];
+   path_error = [path_error norm(pose(:,k)-desired_path(:,k))^2];
 end
 
-mean_average_error = mean(path_error);
+mean_average_error = sqrt(mean(path_error));
 fprintf('The average error to the desired path: %d \n', mean_average_error);
 
 %% sumatory of accelerations
@@ -55,7 +55,7 @@ for k=2:N
     accel = [accel (u(1,k)^2+u(2,k)^2+u(3,k)^2)];
 end
 
-accel = sqrt(mean(accel));
+accel = mean(sqrt(accel));
 fprintf('acceleration average: %d \n', accel);
 
 %% snap: second derivative of accelerations (fourth derivative of camera trajectory)
@@ -68,7 +68,7 @@ for k=2:N-1
     snap = [snap ((u(1,k+1)-2*u(1,k)+u(1,k-1))^2+(u(2,k+1)-2*u(2,k)+u(2,k-1))^2+(u(3,k+1)-2*u(3,k)+u(3,k-1))^2)/(time_step^4)];
 end
 
-snap = sqrt(mean(snap));
+snap = mean(sqrt(snap));
 fprintf('snap: %d \n', snap);
 
 
