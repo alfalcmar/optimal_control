@@ -27,6 +27,24 @@ vel = [traj(7,:); traj(8,:); traj(9,:)];
 yaw = traj(10,:);
 pitch = traj(11,:);
 
+for i=1:N
+   if yaw(i)<0
+       yaw=yaw+2*pi;
+   end
+   while(yaw(i)>2*pi)
+       yaw(i)=yaw(i)-2*pi;
+   end
+end
+
+for i=1:N
+   if pitch(i)<0
+       pitch=pitch_rot+2*pi;
+   end
+   while(pitch(i)>2*pi)
+       pitch(i)=pitch(i)-2*pi;
+   end
+end
+
 %% minimum distance to obstacle
 min_dist = inf;
 for i=1:N
