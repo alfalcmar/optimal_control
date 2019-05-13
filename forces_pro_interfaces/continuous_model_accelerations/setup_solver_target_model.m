@@ -20,11 +20,12 @@ obst_x = -8.4;
 obst_y = -29.5;
 obst_z = 3;
 
+
 %% Problem dimensions
 model.N = 100;            % horizon length
 model.nvar = 11;          % number of variables 3 control inputs + 10 state variables  [ax ay az px py pz vx vy vz tx ty]
 model.neq  = 8;          % number of equality constraints
-model.nh = 3;            % number of inequality constraints
+model.nh = 2;            % number of inequality constraints
 model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
                          % [1    2   3   4   5   6  7  8  9  10 11 12  ]
        
@@ -62,23 +63,23 @@ model.E = [zeros(8,3) eye(8)];
 
 %% position, velocities and accelerations limits
 % upper/lower variable bounds lb <= x <= ub
-model.lb = [-5 -5 -7 -200 -200 0   -5 -5 -1 -200 -200];
-model.ub = [+5 +5 7 +200 +200 +50 5 5 3 200 200];
+model.lb = [-5 -5 -5 -200 -200 0   -5 -5 -5 -200 -200];
+model.ub = [+5 +5 5 +200 +200 +50 5 5 5 200 200];
 
 % nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
 model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
-                      atan2(sqrt((z(4)-z(10))^2 + (z(5)-z(11))^2 + epsilon), z(6)); % global pitch constarint
-                      atan2(z(11)-z(5)+epsilon,z(10)-z(4)+epsilon)-atan2(z(8)+epsilon,z(7)+epsilon)]; % YAW relative constraint
+                      atan2(sqrt((z(4)-z(10))^2 + (z(5)-z(11))^2 + epsilon), z(6));] % global pitch constarint
+                  %    atan2(z(11)-z(5)+epsilon,z(10)-z(4)+epsilon)-atan2(z(8)+epsilon,z(7)+epsilon)]; % YAW relative constraint
                   
              
 
 % z = [ax ay az px py pz vx vy vz tx ty]  => [control states]
 %  z =  1  2  3  4  5  6  7  8  9 10 11
                    
-% Upper/lower bounds for inequalities
-model.hu = [inf;pi/2;4*pi/5]';
-model.hl = [radius^2;3*pi/8;-5*pi/6]';  %hardcoded for testing r^2
+%Upper/lower bounds for inequalities
+model.hu = [inf;pi/2;]';
+model.hl = [radius^2;pi/4;]';  %hardcoded for testing r^2 %2*pi/8
 
 
 %% Initial and final conditions
@@ -91,7 +92,7 @@ model.xinitidx = 4:11;
 codeoptions = getOptions('FORCESNLPsolver');
 codeoptions.maxit = 10000;    % Maximum number of iterations
 codeoptions.printlevel = 2; % Use printlevel = 2 to print progress (but not for timings)
-codeoptions.optlevel = 0;   % 0: no optimization, 1: optimize for size, 2: optimize for speed, 3: optimize for size & speed
+codeoptions.optlevel = 3;   % 0: no optimization, 1: optimize for size, 2: optimize for speed, 3: optimize for size & speed
 codeoptions.cleanup = false;
 
 
@@ -118,7 +119,7 @@ problem.x0=x0;
 % desired velocity [0, 0, 0]
 % central point of the no_fly_zone [-2.4, -36.5]
 
-param = [7.65; -55; 3; 0; 0; 0; obst_x; obst_y; tx; ty; t_vel_x; t_vel_y];
+param = [final_pose_x; final_pose_y; 3; 0; 0; 0; obst_x; obst_y; tx; ty; t_vel_x; t_vel_y];
 %       [pfx   pfy  pfz  vxf     vyf   vzf cx cy  tx    ty    vtx vty]
 
 problem.all_parameters=repmat(param, model.N,1);
@@ -208,7 +209,6 @@ xlabel('x (m)'); ylabel('y (m)');  zlabel('z (m)');
 
 circle(obst_x,obst_y,radius)
 hold on 
-%circle(-2.4,-36.5,7)
 
 hold on
 initial_point = [initial_x initial_y]; 
@@ -249,3 +249,13 @@ plot(t_x,t_y,'k')
 title('TOP VIEW - FLYOVER')
 legend('cinematography term trajectory', 'No fly zone','Target','Desired point')
 
+m = [TEMP(4:6,:)'];
+csvwrite('csvlist.csv',m)
+
+time = [0];
+for i=1:model.N-1
+    time = [time; time(end)+t];
+
+end
+
+csvwrite('time.csv',time)
