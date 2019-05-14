@@ -24,8 +24,8 @@ function metrics(traj, obst_x, obst_y, obst_z,radius, initial_pose, final_pose, 
 u = [traj(1,:); traj(2,:); traj(3,:)];
 pose = [traj(4,:); traj(5,:); traj(6,:)];
 vel = [traj(7,:); traj(8,:); traj(9,:)];
-yaw = traj(10,:);
-pitch = traj(11,:);
+yaw = traj(12,:);
+pitch = traj(13,:);
 
 for i=1:N
    if yaw(i)<0
@@ -38,7 +38,7 @@ end
 
 for i=1:N
    if pitch(i)<0
-       pitch=pitch_rot+2*pi;
+       pitch=pitch+2*pi;
    end
    while(pitch(i)>2*pi)
        pitch(i)=pitch(i)-2*pi;

@@ -31,10 +31,9 @@ clock_t initial_time;
 
 ///////// solver params /////////
 
-const int time_horizon = 30; // time horizon
-const int n_states_variables = 9;
+const int time_horizon = 100; // time horizon
+const int n_states_variables = 11;
 const float hovering_distance = 0.5;
-
 
 // state vector
 
@@ -52,17 +51,28 @@ const int velocity_z = 8;
 
 // initial guess
 
-const float u_x = 0;
-const float u_y = 0;
-const float u_z = 0;
+const float u_x = 0.5;
+const float u_y = 0.5;
+const float u_z = 0.5;
 
-const float p_x = 0;
-const float p_y = 0;
-const float p_z = 15;
+const float p_x = 2;
+const float p_y = 3;
+const float p_z = 2;
 
-const float v_x = 0;
-const float v_y = 0;
-const float v_z = 0;
+const float v_x = 1;
+const float v_y = 1;
+const float v_z = 2;
+
+const float t_x = 1;
+const float t_y = 1;
+//const float p_x_previous = 1;
+//const float p_y_previous = 0.5;
+//const float p_z_previous = 3;
+
+//const float v_x_previous = 2;
+//const float v_y_previous = 1;
+//const float v_z_previous = 1;
+
 
 // shooting actions types
 

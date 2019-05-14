@@ -1,7 +1,0 @@
-This matlab file generates a solver that solves:
-
-- horizon problem = 30 
-- obstacles: infinite cylindre of center (0,0) and radius 2.
-- objective function = a_x² + a_y^2 + a_z²
-- equality constraints = initial point and final point
-

@@ -44,7 +44,7 @@ set(EXTRALIB_BIN ${PROJECT_SOURCE_DIR}/lib/libFORCESNLPsolver.so)
 add_library(optimal_control_interface_library src/optimal_control_interface.cpp 
 src/FORCESNLPsolver_casadi2forces.c 
 src/FORCESNLPsolver_model_1.c
-src/FORCESNLPsolver_model_30.c
+src/FORCESNLPsolver_model_100.c
 )
 
 

@@ -1,14 +1,17 @@
 <launch>
     <node pkg="optimal_control_interface" name="optimal_control_node" type="optimal_control_interface_node" output="screen">
         <param name="drone_id" value="1"/>
-        <param name="control_rate" value="10"/>
+        <param name="receding_horizon" value="false"/>
+        <param name="control_rate" value="3"/>
         <param name="solver_rate" value="1"/>
-        <param name="height_take_off" value = "5"/> 
+        <param name="height_take_off" value = "4"/> 
         <param name="position_control" value = "true"/>
-        <param name="start_point" value = "5"/> <!-- start point of the trajectory -->
+        <param name="start_point" value = "1"/> <!-- start point of the trajectory -->
         <rosparam param="desired_wp">[7.65, -55, 3]</rosparam><!-- [x,y,z] -->
-        <rosparam param="desired_vel">[0, 0, 0]</rosparam><!-- [x,y,z] -->
-        <rosparam param="no_fly_zone">[-2.4, -36.5]</rosparam>
+        <rosparam param="desired_vel">[2, 2, 0]</rosparam><!-- [x,y,z] -->
+        <rosparam param="target_pose_init">[-8.4, -29.5]</rosparam><!-- [x,y,z] -->
+        <rosparam param="target_vel">[0, 0]</rosparam><!-- [x,y,z] -->
+        <rosparam param="no_fly_zone">[-2.4, -36.5]</rosparam> <!-- [-2.4, -36.5] -->
     </node>
 
     <include file="$(find visualization)/launch/visualization_forces.launch">

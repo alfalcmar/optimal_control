@@ -44,7 +44,7 @@ def uav_pose_callback(data):
     current_pose_x = data.pose.position.x
     current_pose_y = data.pose.position.y
 
-file = sio.loadmat('/home/grvc/Desktop/to_navigate_straight.mat')
+file = sio.loadmat('/home/grvc/following_target_simulation/forces_pro_interfaces/gazebo_simulation/cine_1_10000.mat')
 matrix = file['TEMP']
 plt.plot(matrix[3,:],matrix[4,:])
 
@@ -104,7 +104,7 @@ pose_on_path = cal_pose_on_path(pos_x, pos_y)
 init_time = time.time()
 
 vel = TwistStamped()
-while pose_on_path<98:
+while pose_on_path<398:
     pose_on_path = cal_pose_on_path(pos_x, pos_y)
     if pose_on_path == 0:
         pose_on_path = 1

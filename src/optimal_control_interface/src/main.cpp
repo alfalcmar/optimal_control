@@ -12,6 +12,8 @@
 #include <optimal_control_interface.h>
 #include <uav_abstraction_layer/State.h>
 
+
+
 bool position_control;
 ros::Publisher set_pose_pub;
 ros::Publisher set_velocity_pub;
@@ -38,6 +40,7 @@ std::vector<double> vz_ual;
 bool solver_success; 
 int start_point;
 int ual_state;
+float control_rate;
 
 
 /** callback for ual state
@@ -59,11 +62,10 @@ void targetPoseCallback(const nav_msgs::Odometry::ConstPtr &msg)
  */
 void UALthread(){
     
-    ros::Rate rate(10);
+    ros::Rate rate(control_rate);
     ROS_INFO("thread initialized");
     int cont = start_point;
     while(ros::ok()){
-        ROS_INFO("waiting for the solver");
   
         if(!x_ual.empty() || !y_ual.empty() || !z_ual.empty()) // if there is no trajectory, the ual is not called
         {
@@ -71,9 +73,7 @@ void UALthread(){
                 cont = start_point;
                 solver_success = false;
             }
-            else if(cont > time_horizon){ // if the trajectory is finished, nothing is done
-
-            } 
+            else if(cont > time_horizon){} // if the trajectory is finished, nothing is done} 
             else cont = cont+1;
 
             if(!position_control || (cont>time_horizon)){
@@ -105,7 +105,6 @@ void UALthread(){
                 desired_point.header.frame_id = "map";
 
                 desired_pose_publisher.publish(desired_point);
-                std::cout<<"cont: "<<cont<<std::endl;
 
                 pose.header.frame_id = "map";
                 pose.header.stamp = ros::Time::now();
@@ -123,8 +122,6 @@ void UALthread(){
         rate.sleep();
     }
    
-    
-    
 
 }
 
@@ -136,19 +133,40 @@ int main(int _argc, char **_argv)
     ros::init(_argc, _argv, "optimal_control_interface_node");
     ros::NodeHandle nh = ros::NodeHandle();
     ros::NodeHandle pnh = ros::NodeHandle("~");
+    //utility vars
     int n_steps;
     float height_take_off;
+    float solver_rate;
+    bool receding_horizon = false;
+
     // parameters
     pnh.param<float>("height_take_off", height_take_off, 4.0);
     pnh.param<int>("start_point", start_point, 5);
     pnh.param<bool>("position_control", position_control, false);
+    pnh.param<float>("solver_rate", solver_rate, 1.0);
+    pnh.param<float>("control_rate", control_rate, 1.0);
+    pnh.param<bool>("receding_horizon", receding_horizon, false);
     pnh.param<int>("n_steps_control", n_steps, 10);
     std::string target_topic;
     pnh.param<std::string>("target_topic",target_topic, "drc_vehicle_xp900/odometry");
     std::vector<double> desired_wp; 
     std::vector<double> desired_vel;
     std::vector<double> obst;
+    std::vector<double> target_vel = {0, 0};
+    std::vector<double> target_pose_init = {0, 0};
 
+    if (ros::param::has("~target_pose_init")) {
+        ros::param::get("~target_pose_init",target_pose_init);
+    }
+    else {
+        ROS_WARN("fail to get initial target pose");
+    }
+    if (ros::param::has("~target_vel")) {
+        ros::param::get("~target_vel",target_vel);
+    }
+    else {
+        ROS_WARN("fail to get target velocity");
+    }
     if (ros::param::has("~desired_wp")) {
         ros::param::get("~desired_wp",desired_wp);
     }
@@ -180,25 +198,25 @@ int main(int _argc, char **_argv)
     // init solver
     init(nh);
 
-
     // taking off
     uav_abstraction_layer::TakeOff srv;
     srv.request.blocking = true;
     srv.request.height = height_take_off;
     if(!take_off_srv.call(srv)){
         ROS_WARN("the take off is not available");
+    }else{
+        ROS_INFO("taking_off");
+        while(ual_state!=uav_abstraction_layer::State::FLYING_AUTO)
+            {   
+                ros::spinOnce();
+                sleep(0.5);
+            }
     }
-    while(ual_state!=uav_abstraction_layer::State::FLYING_AUTO)
-    {   
-        ROS_INFO("Taking off");
-        ros::spinOnce();
-        sleep(0.5);
-    }
-    ros::spinOnce();
-    // thread for calling the UAL
+    // thread to call the UAL
     std::thread threadObjSolver(UALthread);
 
-    ros::Rate rate(1); //hz
+    ros::Rate rate(solver_rate); //hz
+
     /* main loop to call the solver. */
     while(ros::ok){   
         // solver function
@@ -206,7 +224,7 @@ int main(int _argc, char **_argv)
           y.clear();
           z.clear();
         ROS_INFO("calling solver");
-        solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst);
+        solver_success = solverFunction(x,y,z,vx,vy,vz, desired_wp, desired_vel, obst,target_pose_init,target_vel);
 
         if(solver_success){
             x_ual.clear();
@@ -229,17 +247,19 @@ int main(int _argc, char **_argv)
         // publish path to rviz visualizer
         publishPath(x,y,z,desired_wp);
 
-        double point_1[2]= {-13.1,-35.55};
-        double point_2[2]= {-2.2,-20.8};
-        double point_3[2]= {10.77,-39.7};
-        double point_4[2]= {-2.5,-51.3};
+        // double point_1[2]= {-13.1,-35.55};
+        // double point_2[2]= {-2.2,-20.8};
+        // double point_3[2]= {10.77,-39.7};
+        // double point_4[2]= {-2.5,-51.3};
 
-        publishNoFlyZone(point_1,point_2,point_3,point_4);
+        // publishNoFlyZone(point_1,point_2,point_3,point_4);
 
         publishDesiredPoint(desired_wp[0], desired_wp[1], desired_wp[2]);
+        if(!receding_horizon) break;
         rate.sleep();
         ros::spinOnce();
     }
+    if(!receding_horizon) ros::spin();
     
     threadObjSolver.join();
     return 0;
