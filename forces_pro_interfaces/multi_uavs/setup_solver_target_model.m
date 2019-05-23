@@ -3,93 +3,65 @@ clear; clc; close all;
 addpath('/home/grvc/Desktop/casadi')
 addpath('/home/grvc/Desktop/FORCES_PRO_CLIENT')
 import casadi.*;
-clear_script;
-%% obstacle and target position
-radius = 4;
-tx = -8.4; 
-ty = -29.5;
-final_pose_x =7.65;
-final_pose_y =-55;
-final_pose_z = 3;
+%clear_script;
 
-initial_x = -18.8; %-18.8 -12.26
-initial_y = -12.26;
-initial_z = 3;
+epsilon = 0.001;
+radius = 1; % radius of the circunference which surround drones
 
-obst_x = -8.4;
-obst_y = -29.5;
-obst_z = 3;
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% SOLVER GENERATION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Problem dimensions
-model.N = 100;            % horizon length
-model.nvar = 12;          % number of variables 3 control inputs + 10 state variables  [ax ay az px py pz vx vy vz tx ty]
-model.neq  = 9;          % number of equality constraints
-model.nh = 2;            % number of inequality constraints
-model.npar = 12;         % [pfx pfy pfz vxf vyf vzf cx cy tx ty vtx vtz]
-                         % [1    2   3   4   5   6  7  8  9  10 11 12  ]
-       
-t= 0.1;  %% time step - integrator
-epsilon = 0.001;
-
-% time step and horizon lenght to use the solver in the receding horizon in
-% real experiments
-
-
-%% z = [ax ay az px py pz vx vy vz]  => [control states]
+model.N = 100;           % horizon length
+model.nvar = 9;          % number of variables 3 control inputs + 6 state variables  [ax ay az px py pz vx vy vz]
+model.neq  = 6;          % number of equality constraints
+model.nh = 3;            % number of inequality constraints
+model.npar = 14;         % [pfx pfy pfz vxf vyf vzf dx dy tx ty vtx vty dx2 dx3]
+                         % [1    2   3   4   5   6  7  8  9  10  11  12  13  14]
 %% Objective function 
 
 model.objective = @objfunGlobal_target_model;  %% function objective (included in the same folder)
 model.objectiveN = @objfunN; %% N function obective (included in the same folder)
 
-%% MODEL %%%%%%%%%%%%%%%
 %% Continous model
 % We use an explicit RK4 integrator here to discretize continuous dynamics:
 m=1; I=1; % physical constants of the model
 integrator_stepsize = 0.1;
-continuous_dynamics = @(x,u,par) [x(4);  % v_x
+continuous_dynamics = @(x,u) [x(4);  % v_x
                               x(5);  % v_y
                               x(6);  % v_z
                               u(1);
                               u(2);
                               u(3);
-                              par(1); % vt_x
-                              par(2);  % vt_y = cte
-                              1;       % time dt/dt = 1
                               ]; 
 
-model.eq = @(z,p) RK4(z(4:12), z(1:3), continuous_dynamics, integrator_stepsize,p(11:12)); % Using CasADi RK4 integrator
+model.eq = @(z) RK4(z(4:9), z(1:3), continuous_dynamics, integrator_stepsize); % Using CasADi RK4 integrator
 
-model.E = [zeros(9,3) eye(9)];
+model.E = [zeros(6,3) eye(6)];
 
-%% position, velocities and accelerations limits
-% upper/lower variable bounds lb <= x <= ub
-model.lb = [-5 -5 -5 -200 -200 0   -5 -5 -5 -200 -200 0];
-model.ub = [+5 +5 5 +200 +200 +50 5 5 5 200 200 500];
+%% upper/lower variable bounds lb <= x <= ub
+model.lb = [-5 -5 -5 -200 -200 0 -5 -5 -5];
+model.ub = [+5 +5 5 +200 +200 +50 5 5 5];
 
-% nonlinear inequalities
+%% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
 model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
-                      atan2(sqrt((z(4)-z(10))^2 + (z(5)-z(11))^2 + epsilon), z(6));] % global pitch constarint
-                  %    atan2(z(11)-z(5)+epsilon,z(10)-z(4)+epsilon)-atan2(z(8)+epsilon,z(7)+epsilon)]; % YAW relative constraint
+                       (z(4)-p(7))^2 + (z(5)-p(8))^2;
+                      atan2(sqrt((z(4)-p(9))^2 + (z(5)-p(10))^2 + epsilon), z(6));] % global pitch constarint
+                  %    atan2(p(10)-z(5)+epsilon,p(9)-z(4)+epsilon)-atan2(z(8)+epsilon,z(7)+epsilon)]; % YAW relative constraint
                   
-             
-
-% z = [ax ay az px py pz vx vy vz tx ty]  => [control states]
-%  z =  1  2  3  4  5  6  7  8  9 10 11
-                   
-%Upper/lower bounds for inequalities
-model.hu = [inf;pi/2;]';
-model.hl = [radius^2;pi/4;]';  %hardcoded for testing r^2 %2*pi/8
+% Upper/lower bounds for inequalities
+model.hu = [inf;inf;pi/2;]';
+model.hl = [radius^2;radius^2;pi/4;]';  %hardcoded for testing r^2 %2*pi/8
 
 
 %% Initial and final conditions
-
 % Velocity and position of the vehicle as initial constraints
-model.xinitidx = 4:12;
+model.xinitidx = 4:9;
 
 
-% Define solver options
+%% Define solver options
 codeoptions = getOptions('FORCESNLPsolver');
 codeoptions.maxit = 10000;    % Maximum number of iterations
 codeoptions.printlevel = 2; % Use printlevel = 2 to print progress (but not for timings)
@@ -97,41 +69,178 @@ codeoptions.optlevel = 0;   % 0: no optimization, 1: optimize for size, 2: optim
 codeoptions.cleanup = false;
 
 
-
 %% Generate forces solver
 FORCES_NLP(model, codeoptions);
+target_init = [-8.4 -29.5];
+
+rot = [cos(-0.9) -sin(-0.9); sin(-0.9) cos(0.9)]; % -0,9 - rotation from game to map frames
+
+%% environment configuration
+% target trajectory
+target_final = [7.65 -55 3];
+
+t_velxy = 1.5;
+t_vel_x = t_velxy*(target_final(1)-target_init(1))/sqrt((target_final(1)-target_init(1))^2+(target_final(2)-target_init(2))^2);
+t_vel_y = t_velxy*(target_final(2)-target_init(2))/sqrt((target_final(1)-target_init(1))^2+(target_final(2)-target_init(2))^2);
+
+% target trajectory
+tx = [];
+ty = [];
+for k=1:model.N
+    tx = [tx target_init(1)+integrator_stepsize*(k-1)*t_vel_x];
+    ty = [ty target_init(2)+integrator_stepsize*(k-1)*t_vel_y];
+end
+%drone 1 initial pose
+relative_to_target = [0; 5];
+relative_to_target_map = rot*relative_to_target;
+drone_1 = [target_init(1)+relative_to_target_map(1) target_init(2)+relative_to_target_map(2) 3];
+%drone 2 initial pose
+relative_to_target = [0; -5];
+relative_to_target_map = rot*relative_to_target;
+drone_2 = [target_init(1)+relative_to_target_map(1) target_init(2)+relative_to_target_map(2) 3];
+%drone 3 initial pose
+relative_to_target = [-5; 0];
+relative_to_target_map = rot*relative_to_target;
+drone_3 = [target_init(1)+relative_to_target_map(1) target_init(2)+relative_to_target_map(2) 3];
+%drone 1 final pose
+relative_to_target = [0; 5];
+relative_to_target_map = rot*relative_to_target;
+drone_1_end = [tx(model.N)+relative_to_target_map(1) ty(model.N)+relative_to_target_map(2) 3];
+%drone 2 final pose
+relative_to_target = [0; -5];
+relative_to_target_map = rot*relative_to_target;
+drone_2_end = [tx(model.N)+relative_to_target_map(1) ty(model.N)+relative_to_target_map(2) 3];
+%drone 3 final pose
+relative_to_target = [5; 0];
+relative_to_target_map = rot*relative_to_target;
+drone_3_end = [tx(model.N)+relative_to_target_map(1) ty(model.N)+relative_to_target_map(2) 3];
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%% DRONE 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+final_pose = drone_1_end;
+final_vel = [0 0 0];
 
 %calculate the initial velocity of the target
 
-t_velxy = 1.5;
-t_vel_x = t_velxy*(final_pose_x-tx)/sqrt((final_pose_x-tx)^2+(final_pose_y-ty)^2);
-t_vel_y = t_velxy*(final_pose_y-ty)/sqrt((final_pose_x-tx)^2+(final_pose_y-ty)^2);
-
-%% Call solver
+%% Call solver drone 1
 % Set initial guess to start solver from:
 
 x0i = model.lb+(model.ub-model.lb)/2+1;
 x0=repmat(x0i',model.N,1);
 problem.x0=x0;
 
+% parameters
+param = zeros(12,model.N);
+param(1,:) = repmat(final_pose(1),model.N,1);
+param(2,:) = repmat(final_pose(2),model.N,1);
+param(3,:) = repmat(final_pose(3),model.N,1);
+param(4,:) = repmat(final_vel(1),model.N,1);
+param(5,:) = repmat(final_vel(2),model.N,1);
+param(6,:) = repmat(final_vel(3),model.N,1);
+param(7,:) = repmat(drone_2(1),model.N,1); % drone 2 pose as static
+param(8,:) = repmat(drone_2(2),model.N,1);
+%param(9) = repmat(drone_2(3),model.N,1);
+param(9,:) = tx;                            % target trajectory
+param(10,:) = ty;
+param(11,:) = repmat(t_vel_x,model.N,1);    % target velocity constant
+param(12,:) = repmat(t_vel_y,model.N,1);
+param(13,:) = repmat(drone_3(1),model.N,1); % drone 2 pose as static
+param(14,:) = repmat(drone_3(2),model.N,1);
+aux = [];
+for k=1:model.N 
+    aux = [aux param(1,k) param(2,k) param(3,k) param(4,k) param(5,k) param(6,k) param(7,k) param(8,k) param(9,k) param(10,k) param(11,k) param(12,k) param(13,k) param(14,k)];
 
-% Set parameters with the final point and final velocity  
-% desired pose [7.65,-55,3]
-% desired velocity [0, 0, 0]
-% central point of the no_fly_zone [-2.4, -36.5]
+end
+problem.all_parameters= aux';
 
-param = [final_pose_x; final_pose_y; 3; 0; 0; 0; obst_x; obst_y; tx; ty; t_vel_x; t_vel_y];
-%       [pfx   pfy  pfz  vxf     vyf   vzf cx cy  tx    ty    vtx vty]
+% Set initial conditions
+problem.xinit = [drone_1(1); drone_1(2); drone_1(3); 0; 0; 0;];
 
-problem.all_parameters=repmat(param, model.N,1);
+% Time to solve the NLP!
+[output,exitflag,info] = FORCESNLPsolver(problem);
 
-% Set initial constraint.   This is usually changing in the simulation to use
-% the receding horizon
-% initial pose [-18.8, -12.26]
-% initial velocity [0, 0, 0]
-%model.xinitidx = 4:13;
+% Make sure the solver has exited properly.
+%assert(exitflag == 1,'Some problem in FORCES solver');
+fprintf('\nFORCES took %d iterations and %f seconds to solve the problem.\n',info.it,info.solvetime);
 
-problem.xinit = [initial_x; initial_y; initial_z; 0; 0; 0; tx; ty; 0];
+%% Plot results
+TEMP = zeros(model.nvar,model.N);
+for i=1:model.N
+    if(model.N>=100)
+        if (i<100)
+          TEMP(:,i) = output.(['x0',sprintf('%02d',i)]);
+        else
+          TEMP(:,i) = output.(['x',sprintf('%02d',i)]);
+        end
+    else
+      TEMP(:,i) = output.(['x',sprintf('%02d',i)]);
+    end
+
+end
+
+%% plotting output
+u_x_1 = TEMP(1,:);
+u_y_1 = TEMP(2,:);
+u_z_1 = TEMP(3,:);
+x_1 = TEMP(4,:);
+y_1 = TEMP(5,:);
+z_1 = TEMP(6,:);
+v_x_1 = TEMP(7,:);
+v_y_1 = TEMP(8,:);
+v_z_1 = TEMP(9,:);
+
+
+% for k=1:model.N
+%    TEMP(12,k) =atan2(ty(k)-y(k),tx(k)-x(k)); %yaw global
+%    TEMP(13,k) = atan2(z(k),sqrt((ty(k)-y(k))^2+(tx(k)-x(k))^2));% pitch
+%    TEMP(14,k) = atan2(ty(k)-x(k)+epsilon,tx(k)-x(k)+epsilon)-atan2(v_y(k)+epsilon,v_x(k)+epsilon); % YAW  relative 
+% end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%% DRONE 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+final_pose = drone_2_end;
+final_vel = [0 0 0];
+
+%calculate the initial velocity of the target
+
+%% Call solver drone 1
+% Set initial guess to start solver from:
+
+x0i = model.lb+(model.ub-model.lb)/2+1;
+x0=repmat(x0i',model.N,1);
+problem.x0=x0;
+
+% parameters
+param = zeros(12,model.N);
+param(1,:) = repmat(final_pose(1),model.N,1);
+param(2,:) = repmat(final_pose(2),model.N,1);
+param(3,:) = repmat(final_pose(3),model.N,1);
+param(4,:) = repmat(final_vel(1),model.N,1);
+param(5,:) = repmat(final_vel(2),model.N,1);
+param(6,:) = repmat(final_vel(3),model.N,1);
+param(7,:) = x_1;
+param(8,:) = y_1;
+%param(9) = repmat(drone_2(3),model.N,1);
+param(9,:) = tx;                            % target trajectory
+param(10,:) = ty;
+param(11,:) = repmat(t_vel_x,model.N,1);    % target velocity constant
+param(12,:) = repmat(t_vel_y,model.N,1);
+param(13,:) = repmat(drone_3(1),model.N,1); % drone 2 pose as static
+param(14,:) = repmat(drone_3(2),model.N,1);
+aux = [];
+for k=1:model.N 
+    aux = [aux param(1,k) param(2,k) param(3,k) param(4,k) param(5,k) param(6,k) param(7,k) param(8,k) param(9,k) param(10,k) param(11,k) param(12,k) param(13,k) param(14,k)];
+
+end
+problem.all_parameters= aux';
+
+% Set initial conditions
+problem.xinit = [drone_2(1); drone_2(2); drone_2(3); 0; 0; 0;];
 
 % Time to solve the NLP!
 [output,exitflag,info] = FORCESNLPsolver(problem);
@@ -157,31 +266,124 @@ end
 
 
 %% plotting output
-u_x = TEMP(1,:);
-u_y = TEMP(2,:);
-u_z = TEMP(3,:);
-x = TEMP(4,:);
-y = TEMP(5,:);
-z = TEMP(6,:);
-v_x = TEMP(7,:);
-v_y = TEMP(8,:);
-v_z = TEMP(9,:);
-t_x = TEMP(10,:);
-t_y = TEMP(11,:);
+u_x_2 = TEMP(1,:);
+u_y_2 = TEMP(2,:);
+u_z_2 = TEMP(3,:);
+x_2 = TEMP(4,:);
+y_2 = TEMP(5,:);
+z_2 = TEMP(6,:);
+v_x_2 = TEMP(7,:);
+v_y_2 = TEMP(8,:);
+v_z_2 = TEMP(9,:);
 
-for k=1:model.N
-   TEMP(12,k) =atan2(ty-y(k),tx-x(k)); %yaw global
-   TEMP(13,k) = atan2(z(k),sqrt((ty-y(k))^2+(tx-x(k))^2));% pitch
-   TEMP(14,k) = atan2(ty-x(k)+epsilon,tx-x(k)+epsilon)-atan2(v_y(k)+epsilon,v_x(k)+epsilon); % YAW  relative 
+% 
+% for k=1:model.N
+%    TEMP(12,k) =atan2(ty(k)-y(k),tx(k)-x(k)); %yaw global
+%    TEMP(13,k) = atan2(z(k),sqrt((ty(k)-y(k))^2+(tx(k)-x(k))^2));% pitch
+%    TEMP(14,k) = atan2(ty(k)-x(k)+epsilon,tx(k)-x(k)+epsilon)-atan2(v_y(k)+epsilon,v_x(k)+epsilon); % YAW  relative 
+% end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%% DRONE 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+final_pose = drone_3_end;
+final_vel = [0 0 0];
+
+%calculate the initial velocity of the target
+
+%% Call solver drone 1
+% Set initial guess to start solver from:
+
+x0i = model.lb+(model.ub-model.lb)/2+1;
+x0=repmat(x0i',model.N,1);
+problem.x0=x0;
+
+% parameters
+param = zeros(12,model.N);
+param(1,:) = repmat(final_pose(1),model.N,1);
+param(2,:) = repmat(final_pose(2),model.N,1);
+param(3,:) = repmat(final_pose(3),model.N,1);
+param(4,:) = repmat(final_vel(1),model.N,1);
+param(5,:) = repmat(final_vel(2),model.N,1);
+param(6,:) = repmat(final_vel(3),model.N,1);
+param(7,:) = x_1;
+param(8,:) = y_1;
+%param(9) = repmat(drone_2(3),model.N,1);
+param(9,:) = tx;                            % target trajectory
+param(10,:) = ty;
+param(11,:) = repmat(t_vel_x,model.N,1);    % target velocity constant
+param(12,:) = repmat(t_vel_y,model.N,1);
+param(13,:) = x_2; % drone 2 pose as static
+param(14,:) = y_2;
+aux = [];
+for k=1:model.N 
+    aux = [aux param(1,k) param(2,k) param(3,k) param(4,k) param(5,k) param(6,k) param(7,k) param(8,k) param(9,k) param(10,k) param(11,k) param(12,k) param(13,k) param(14,k)];
+
+end
+problem.all_parameters= aux';
+
+% Set initial conditions
+problem.xinit = [drone_3(1); drone_3(2); drone_3(3); 0; 0; 0;];
+
+% Time to solve the NLP!
+[output,exitflag,info] = FORCESNLPsolver(problem);
+
+% Make sure the solver has exited properly.
+%assert(exitflag == 1,'Some problem in FORCES solver');
+fprintf('\nFORCES took %d iterations and %f seconds to solve the problem.\n',info.it,info.solvetime);
+
+%% Plot results
+TEMP = zeros(model.nvar,model.N);
+for i=1:model.N
+    if(model.N>=100)
+        if (i<100)
+          TEMP(:,i) = output.(['x0',sprintf('%02d',i)]);
+        else
+          TEMP(:,i) = output.(['x',sprintf('%02d',i)]);
+        end
+    else
+      TEMP(:,i) = output.(['x',sprintf('%02d',i)]);
+    end
+
 end
 
-shot_duration = 10;
-metrics(TEMP, obst_x, obst_y, obst_z,radius, [initial_x initial_y initial_z], [final_pose_x final_pose_y final_pose_z], t, shot_duration)
 
-plot(x,y,'b', 'LineWidth', 3); hold on
+%% plotting output
+u_x_3 = TEMP(1,:);
+u_y_3 = TEMP(2,:);
+u_z_3 = TEMP(3,:);
+x_3 = TEMP(4,:);
+y_3 = TEMP(5,:);
+z_3 = TEMP(6,:);
+v_x_3 = TEMP(7,:);
+v_y_3 = TEMP(8,:);
+v_z_3 = TEMP(9,:);
+
+% 
+% for k=1:model.N
+%    TEMP(12,k) =atan2(ty(k)-y(k),tx(k)-x(k)); %yaw global
+%    TEMP(13,k) = atan2(z(k),sqrt((ty(k)-y(k))^2+(tx(k)-x(k))^2));% pitch
+%    TEMP(14,k) = atan2(ty(k)-x(k)+epsilon,tx(k)-x(k)+epsilon)-atan2(v_y(k)+epsilon,v_x(k)+epsilon); % YAW  relative 
+% end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%% PLOT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+shot_duration = 10;
+%metrics(TEMP, obst_x, obst_y, obst_z,radius, [initial_x initial_y initial_z], [final_pose_x final_pose_y final_pose_z], t, shot_duration)
+plot(x_3,y_3,'g', 'LineWidth', 3); hold on
+hold on
+plot(x_2,y_2,'r', 'LineWidth', 3); hold on
+hold on
+plot(x_1,y_1,'b', 'LineWidth', 3); hold on
 hold on
 xlabel('x (m)'); ylabel('y (m)');  zlabel('z (m)');
 
+plot(tx,ty)
 
 %% plotting the real no fly zone
 % clear x
@@ -208,22 +410,22 @@ xlabel('x (m)'); ylabel('y (m)');  zlabel('z (m)');
 % hold on
 % plot(x,y)
 
-circle(obst_x,obst_y,radius)
+circle(x_1(model.N),y_1(model.N),radius)
 hold on 
 
 hold on
-initial_point = [initial_x initial_y]; 
+initial_point = [drone_1(1) drone_1(2)]; 
 final_point = [7.65 -55];
 to_plot= [initial_point; final_point];
 %plot(to_plot(:,1),to_plot(:,2),'b--');
 
 hold on
-plot(tx,ty,'rx')
+%plot(tx,ty,'rx')
 
 hold on
-plot(final_pose_x,final_pose_y,'bx', 'MarkerSize',10)
+plot(final_pose(1),final_pose(2),'bx', 'MarkerSize',10)
 hold on
-plot(t_x,t_y,'k')
+%plot(tx,ty,'k')
 
 % wo=load('trajectory_wo.mat');
 % 
@@ -252,11 +454,11 @@ legend('cinematography term trajectory', 'No fly zone','Target','Desired point')
 
 m = [TEMP(4:6,:)'];
 csvwrite('csvlist.csv',m)
+% 
+% time = [0];
+% for i=1:model.N-1
+%     time = [time; time(end)+t];
+% 
+% end
 
-time = [0];
-for i=1:model.N-1
-    time = [time; time(end)+t];
-
-end
-
-csvwrite('time.csv',time)
+%csvwrite('time.csv',time)
