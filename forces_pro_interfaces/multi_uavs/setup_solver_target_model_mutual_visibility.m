@@ -16,9 +16,9 @@ alpha = 0.20;
 model.N = 100;           % horizon length
 model.nvar = 9;          % number of variables 3 control inputs + 6 state variables  [ax ay az px py pz vx vy vz]
 model.neq  = 6;          % number of equality constraints
-model.nh = 3;            % number of inequality constraints
-model.npar = 14;         % [pfx pfy pfz vxf vyf vzf dx dy tx ty vtx vty dx2 dx3]
-                         % [1    2   3   4   5   6  7  8  9  10  11  12  13  14]
+model.nh = 2;            % number of inequality constraints
+model.npar = 15;         % [pfx pfy pfz vxf vyf vzf dx dy tx ty vtx vty dx2 dx3 camera_angle]
+                         % [1    2   3   4   5   6  7  8  9  10  11  12  13  14     15]
 %% Objective function 
 
 model.objective = @objfunGlobal_target_model;  %% function objective (included in the same folder)
@@ -46,16 +46,17 @@ model.ub = [+5 +5 5 +200 +200 +50 5 5 5];
 
 %% nonlinear inequalities
 % (vehicle_x - obstacle_x)^2 +(vehicle_y - obstacle_y)^2 > r^2
-model.ineq = @(z,p)  [(z(4)-p(7))^2 + (z(5)-p(8))^2;
-                       (z(4)-p(13))^2 + (z(5)-p(14))^2;
-                      atan2(sqrt((z(4)-p(9))^2 + (z(5)-p(10))^2 + epsilon), z(6));]
-                      
+model.ineq = @(z,p)  [%(z(4)-p(7))^2 + (z(5)-p(8))^2;
+                       %(z(4)-p(13))^2 + (z(5)-p(14))^2;
+                      %atan2(sqrt((z(4)-p(9))^2 + (z(5)-p(10))^2 + epsilon), z(6));
+                      (p(9)-z(4)+epsilon)*(p(7)-z(4)+epsilon)+(p(10)-z(5)+epsilon)*(p(8)-z(5)+epsilon)+(-z(6))*(3-z(6))-(sqrt((p(9)-z(4))^2+(p(10)-z(5))^2+(-z(6))^2))*(sqrt((p(7)-z(4))^2+(p(8)-z(5))^2+(3-z(6))^2))*cos(p(15));
+                      (p(9)-z(4)+epsilon)*(p(13)-z(4)+epsilon)+(p(10)-z(5)+epsilon)*(p(14)-z(5)+epsilon)+(-z(6))*(3-z(6))-(sqrt((p(9)-z(4))^2+(p(10)-z(5))^2+(-z(6))^2))*(sqrt((p(13)-z(4))^2+(p(14)-z(5))^2+(3-z(6))^2))*cos(p(15))] %(pt-pd)*(pi-pd)-norm(pt-pd)*norm(pi-pd)*cos(alpha) %(pt-pd)*(pi-pd)-norm(pt-pd)*norm(pi-pd)*cos(alpha)
                   % global pitch constarint
                   %    atan2(p(10)-z(5)+epsilon,p(9)-z(4)+epsilon)-atan2(z(8)+epsilon,z(7)+epsilon)]; % YAW relative constraint
                   
 % Upper/lower bounds for inequalities
-model.hu = [inf;inf;pi/2;]';
-model.hl = [radius^2;radius^2;pi/4]';  %hardcoded for testing r^2 %2*pi/8
+model.hu = [0;0]%[inf;inf;pi/2;inf;inf]';
+model.hl = [-inf;-inf]%[radius^2;radius^2;pi/4;0;0]';  %hardcoded for testing r^2 %2*pi/8
 
 
 %% Initial and final conditions
@@ -93,29 +94,29 @@ for k=1:model.N
     ty = [ty target_init(2)+integrator_stepsize*(k-1)*t_vel_y];
 end
 %drone 1 initial pose
-relative_to_target = [0; 5];
+relative_to_target = [0; 10];
 relative_to_target_map = rot*relative_to_target;
 drone_1 = [target_init(1)+relative_to_target_map(1) target_init(2)+relative_to_target_map(2) 3];
 %drone 2 initial pose
-relative_to_target = [0; -5];
+relative_to_target = [0; -10];
 relative_to_target_map = rot*relative_to_target;
-drone_2 = [target_init(1)+relative_to_target_map(1) target_init(2)+relative_to_target_map(2) 3];
+drone_2 = [target_init(1)+relative_to_target_map(1) target_init(2)+relative_to_target_map(2) 1];
 %drone 3 initial pose
-relative_to_target = [-5; 0];
+relative_to_target = [-10; 0];
 relative_to_target_map = rot*relative_to_target;
 drone_3 = [target_init(1)+relative_to_target_map(1) target_init(2)+relative_to_target_map(2) 3];
 %drone 1 final pose
-relative_to_target = [0; 5];
+relative_to_target = [0; 10];
 relative_to_target_map = rot*relative_to_target;
 drone_1_end = [tx(model.N)+relative_to_target_map(1) ty(model.N)+relative_to_target_map(2) 3];
 %drone 2 final pose
-relative_to_target = [0; -5];
+relative_to_target = [0; -10];
 relative_to_target_map = rot*relative_to_target;
 drone_2_end = [tx(model.N)+relative_to_target_map(1) ty(model.N)+relative_to_target_map(2) 3];
 %drone 3 final pose
-relative_to_target = [5; 0];
+relative_to_target = [10; 0];
 relative_to_target_map = rot*relative_to_target;
-drone_3_end = [tx(model.N)+relative_to_target_map(1) ty(model.N)+relative_to_target_map(2) 3];
+drone_3_end = [tx(model.N)+relative_to_target_map(1) ty(model.N)+relative_to_target_map(2) 1];
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -151,9 +152,10 @@ param(11,:) = repmat(t_vel_x,model.N,1);    % target velocity constant
 param(12,:) = repmat(t_vel_y,model.N,1);
 param(13,:) = repmat(drone_3(1),model.N,1); % drone 2 pose as static
 param(14,:) = repmat(drone_3(2),model.N,1);
+param(15,:) = repmat(alpha,model.N,1);
 aux = [];
 for k=1:model.N 
-    aux = [aux param(1,k) param(2,k) param(3,k) param(4,k) param(5,k) param(6,k) param(7,k) param(8,k) param(9,k) param(10,k) param(11,k) param(12,k) param(13,k) param(14,k)];
+    aux = [aux param(1,k) param(2,k) param(3,k) param(4,k) param(5,k) param(6,k) param(7,k) param(8,k) param(9,k) param(10,k) param(11,k) param(12,k) param(13,k) param(14,k) param(15,k)];
 
 end
 problem.all_parameters= aux';
@@ -234,10 +236,11 @@ param(11,:) = repmat(t_vel_x,model.N,1);    % target velocity constant
 param(12,:) = repmat(t_vel_y,model.N,1);
 param(13,:) = repmat(drone_3(1),model.N,1); % drone 2 pose as static
 param(14,:) = repmat(drone_3(2),model.N,1);
+param(15,:) = repmat(alpha,model.N,1);
 
 aux = [];
 for k=1:model.N 
-    aux = [aux param(1,k) param(2,k) param(3,k) param(4,k) param(5,k) param(6,k) param(7,k) param(8,k) param(9,k) param(10,k) param(11,k) param(12,k) param(13,k) param(14,k)];
+    aux = [aux param(1,k) param(2,k) param(3,k) param(4,k) param(5,k) param(6,k) param(7,k) param(8,k) param(9,k) param(10,k) param(11,k) param(12,k) param(13,k) param(14,k) param(15,k)];
 
 end
 problem.all_parameters= aux';
@@ -320,10 +323,11 @@ param(11,:) = repmat(t_vel_x,model.N,1);    % target velocity constant
 param(12,:) = repmat(t_vel_y,model.N,1);
 param(13,:) = x_2; % drone 2 pose as static
 param(14,:) = y_2;
+param(15,:) = repmat(alpha,model.N,1);
 
 aux = [];
 for k=1:model.N 
-    aux = [aux param(1,k) param(2,k) param(3,k) param(4,k) param(5,k) param(6,k) param(7,k) param(8,k) param(9,k) param(10,k) param(11,k) param(12,k) param(13,k) param(14,k)];
+    aux = [aux param(1,k) param(2,k) param(3,k) param(4,k) param(5,k) param(6,k) param(7,k) param(8,k) param(9,k) param(10,k) param(11,k) param(12,k) param(13,k) param(14,k) param(15,k)];
 
 end
 problem.all_parameters= aux';
@@ -384,7 +388,7 @@ xp=r*cos(ang);
 yp=r*sin(ang);
 figure('units','normalized','outerposition',[0 0 1 1])
 for i=1:100
-    plot(x_3(i),y_3(i),'og','MarkerSize',5,'MarkerFaceColor','g'); hold on
+    plot3(x_3(i),y_3(i),'og','MarkerSize',5,'MarkerFaceColor','g'); hold on
     hold on
     legend('Drone 3', 'Flyover','Drone 2','Lateral','Drone 1','Lateral','Target');
     h=plot(x_3(i)+xp,y_3(i)+yp,'g','LineStyle',':','LineWidth',3);
